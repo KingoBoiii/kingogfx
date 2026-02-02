@@ -99,6 +99,22 @@ pub extern "C" fn kgfx_graphics_destroy_context(ctx: *mut GraphicsContext) -> Kg
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn kgfx_graphics_draw_arrays(ctx: *mut GraphicsContext, pipeline: *mut KgfxPipeline, count: i32) -> KgfxStatus {
+	if ctx.is_null() {
+		return KgfxStatus::NullPointer;
+	}
+
+	let result = std::panic::catch_unwind(|| unsafe {
+		(*ctx).draw_arrays(pipeline, count);
+	});
+
+	match result {
+		Ok(()) => KgfxStatus::Ok,
+		Err(_) => KgfxStatus::Panic,
+	}
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn kgfx_graphics_viewport(ctx: *mut GraphicsContext, x: i32, y: i32, width: i32, height: i32) -> KgfxStatus {
 	if ctx.is_null() {
 		return KgfxStatus::NullPointer;

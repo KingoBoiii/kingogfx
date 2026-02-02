@@ -20,6 +20,14 @@ impl OpenGLBackend {
 		Some(Self)
 	}
 
+	pub fn draw_arrays(&mut self, pipeline: &mut OpenGLPipeline, count: i32) -> () {
+		unsafe {
+			pipeline.bind();
+			gl::DrawArrays(gl::TRIANGLES, 0, count);
+			pipeline.unbind();
+		}
+	}
+
 	pub fn viewport(&mut self, x: i32, y: i32, width: i32, height: i32) -> () {
 		unsafe {
 			gl::Viewport(x, y, width, height);
@@ -54,11 +62,25 @@ impl OpenGLPipeline {
 			if id == 0 {
 				return Err(KgfxStatus::InitFailed);
 			}
+
+			gl::BindVertexArray(id);
 		}
 
 		Ok(Self {
 			id,
 		})
+	}
+
+	pub fn bind(&mut self) -> () {
+		unsafe {
+			gl::BindVertexArray(self.id);
+		}
+	}
+
+	pub fn unbind(&mut self) -> () {
+		unsafe {
+			gl::BindVertexArray(0);
+		}
 	}
 }
 

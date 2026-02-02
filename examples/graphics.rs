@@ -7,7 +7,7 @@ use kingogfx::window::{
   kgfx_window_set_should_close, kgfx_window_should_close, kgfx_window_swap_buffers,
 };
 use kingogfx::graphics::{
-  GraphicsContext, KgfxPipeline, KgfxPipelineDesc, KgfxStatus, kgfx_graphics_clear, kgfx_graphics_clear_color, kgfx_graphics_create_context, kgfx_graphics_create_pipeline, kgfx_graphics_destroy_pipeline, kgfx_graphics_viewport
+  GraphicsContext, KgfxPipeline, KgfxPipelineDesc, KgfxStatus, kgfx_graphics_clear, kgfx_graphics_clear_color, kgfx_graphics_create_context, kgfx_graphics_create_pipeline, kgfx_graphics_destroy_pipeline, kgfx_graphics_draw_arrays, kgfx_graphics_viewport
 };
 use kingogfx::{kgfx_is_key_pressed};
 
@@ -80,6 +80,8 @@ fn main() {
   while !kgfx_window_should_close(handle) {
     kgfx_graphics_clear_color(ctx, 0.1, 0.2, 0.3, 1.0);
     kgfx_graphics_clear(ctx);
+
+    kgfx_graphics_draw_arrays(ctx, pipeline, 3);
 
     while kgfx_window_poll_event(handle, &mut event) {
       match event.kind {

@@ -36,6 +36,18 @@ impl GraphicsContext {
 		Ok(Box::into_raw(Box::new(inner)) as *mut KgfxBuffer)
 	}
 
+	pub fn draw_arrays(&mut self, pipeline: *mut KgfxPipeline, count: i32) -> () {
+		if pipeline.is_null() {
+				return;
+		}
+
+		let pipeline = unsafe { &mut *(pipeline as *mut PipelineInner) };
+
+		match (&mut self.backend, &mut pipeline.backend) {
+			(Backend::OpenGL(glb), PipelineBackend::OpenGL(pl)) => glb.draw_arrays(pl, count),
+		}
+	}
+
 	pub fn viewport(&mut self, x: i32, y: i32, width: i32, height: i32) -> () {
 		match &mut self.backend {
 			Backend::OpenGL(glb) => glb.viewport(x, y, width, height),
