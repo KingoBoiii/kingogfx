@@ -1,0 +1,49 @@
+name: build
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows-build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build (debug)
+        run: cargo build
+
+      - name: Install cbindgen
+        run: cargo install cbindgen
+
+      - name: Generate C header
+        run: cbindgen --config cbindgen.toml --crate kingogfx --output include/kingogfx.h
+
+      - name: Stage artifacts into /lib
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path lib, include | Out-Null
+          Copy-Item -Force target/debug/*.dll lib/ -ErrorAction SilentlyContinue
+          Copy-Item -Force target/debug/*.pdb lib/ -ErrorAction SilentlyContinue
+          Copy-Item -Force target/debug/*.lib lib/ -ErrorAction SilentlyContinue
+
+      - name: Upload artifacts (lib + header)
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingogfx-debug-windows-x64
+          path: |
+            lib/**
+            include/**
+          if-no-files-found: error

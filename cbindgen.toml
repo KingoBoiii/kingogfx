@@ -1,0 +1,13 @@
+language = "C"
+pragma_once = true
+cpp_compat = true
+include_guard = "KINGOGFX_H"
+
+# Generér kun det du eksporterer offentligt fra crate (pub)
+# og gør WindowHandle til en opaque type i headeren.
+[export]
+# Du kan enten styre med include-liste, eller lade den tage alt public.
+# include = ["kgfx_create_window", "kgfx_destory_window", "kgfx_window_poll_events", "kgfx_window_swap_buffers", "kgfx_window_should_close", "WindowHandle"]
+
+[defines]
+"target_os = windows" = "KINGOGFX_PLATFORM_WINDOWS"

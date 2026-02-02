@@ -1,8 +1,10 @@
 pub mod window;
 
+#[unsafe(no_mangle)]
 pub extern "C" fn kgfx_init() -> () {
 }
 
+#[unsafe(no_mangle)]
 pub extern "C" fn kgfx_shutdown() -> () {
 }
 
