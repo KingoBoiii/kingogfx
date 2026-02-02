@@ -1,3 +1,11 @@
+pub mod window;
+
+pub extern "C" fn kgfx_init() -> () {
+}
+
+pub extern "C" fn kgfx_shutdown() -> () {
+}
+
 pub fn add(left: u64, right: u64) -> u64 {
 	left + right
 }
