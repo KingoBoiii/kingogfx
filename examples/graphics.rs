@@ -6,7 +6,7 @@ use kingogfx::window::{
   kgfx_window_set_should_close, kgfx_window_should_close, kgfx_window_swap_buffers,
 };
 use kingogfx::graphics::{
-  kgfx_graphics_clear, kgfx_graphics_clear_color, kgfx_graphics_create_context
+  GraphicsContext, GfxStatus, kgfx_graphics_clear, kgfx_graphics_clear_color, kgfx_graphics_create_context
 };
 use kingogfx::{kgfx_is_key_pressed};
 
@@ -14,7 +14,12 @@ fn main() {
   let title = CString::new("GLFW window").expect("title contains an interior NUL byte");
   let handle = kgfx_create_window(title.as_ptr(), 800, 600);
 
-  let ctx = kgfx_graphics_create_context(kingogfx::graphics::BackendKind::OpenGL, handle);
+  let mut ctx: *mut GraphicsContext = std::ptr::null_mut();
+  let status = kgfx_graphics_create_context(kingogfx::graphics::BackendKind::OpenGL, handle, &mut ctx);
+  if status != GfxStatus::Ok
+  {
+    return;
+  }
 
   let mut event = KgfxEvent::default();
 
