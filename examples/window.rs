@@ -1,17 +1,35 @@
 use std::ffi::CString;
 
-use kingogfx::window::{kgfx_create_window, kgfx_destory_window, kgfx_window_poll_events, kgfx_window_should_close, kgfx_window_swap_buffers};
+use kingogfx::window::{
+  KgfxEvent, KgfxEventKind, KgfxKeyAction,
+  kgfx_create_window, kgfx_destroy_window, kgfx_window_poll_event,
+  kgfx_window_set_should_close, kgfx_window_should_close, kgfx_window_swap_buffers,
+};
 
-fn main() -> () {
-  // CString skal leve mindst lige så længe som vinduet bruger pointeren
+fn main() {
   let title = CString::new("GLFW window").expect("title contains an interior NUL byte");
-
   let handle = kgfx_create_window(title.as_ptr(), 800, 600);
 
+  let mut event = KgfxEvent::default();
+
   while !kgfx_window_should_close(handle) {
-    kgfx_window_poll_events(handle);
+    while kgfx_window_poll_event(handle, &mut event) {
+      match event.kind {
+        KgfxEventKind::Key => {
+          if let Some(k) = event.as_key() {
+            // key 256 = escape key
+            if k.key == 256 && k.action == KgfxKeyAction::Press {
+              kgfx_window_set_should_close(handle, true);
+            }
+          }
+        }
+
+        _ => {}
+      }
+    }
+
     kgfx_window_swap_buffers(handle);
   }
 
-  kgfx_destory_window(handle);
+  kgfx_destroy_window(handle);
 }
