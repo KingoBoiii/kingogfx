@@ -30,7 +30,6 @@ pub extern "C" fn kgfx_create_window(title: *const c_char, width: u32, height: u
     glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::OpenGl));
     glfw.window_hint(glfw::WindowHint::OpenGlProfile(glfw::OpenGlProfileHint::Core));
 
-    window.make_current();
     window.set_key_polling(true);
 
     Some(Box::into_raw(Box::new(WindowHandle {

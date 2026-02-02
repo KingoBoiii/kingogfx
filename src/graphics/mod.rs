@@ -1,20 +1,31 @@
+pub mod backends;
 pub mod ffi;
 
 pub use ffi::*;
 
-use crate::window::handle::WindowHandle;
+use backends::opengl::OpenGLBackend;
 
-#[unsafe(no_mangle)]
-pub extern "C" fn kgfx_graphics_load_gl(window_handle: *mut WindowHandle) -> () {
-  let window_handle = unsafe { window_handle.as_mut() };
-  let Some(window_handle) = window_handle else {
-    return; // evt. log/return error-kode via FFI, hvis du vil
-  };
+pub enum Backend {
+    OpenGL(OpenGLBackend),
+    // Vulkan(...),
+    // Dx11(...),
+    // Dx12(...),
+}
 
-  gl::load_with(|symbol| {
-    match window_handle.window.get_proc_address(symbol) {
-      Some(proc_addr) => proc_addr as *const _,
-      None => std::ptr::null(),
+pub struct GraphicsContext {
+    backend: Backend,
+}
+
+impl GraphicsContext {
+    pub fn clear(&mut self) {
+        match &mut self.backend {
+            Backend::OpenGL(glb) => glb.clear(),
+        }
     }
-  });
+
+    pub fn clear_color(&mut self, r: f32, g: f32, b: f32, a: f32) {
+        match &mut self.backend {
+            Backend::OpenGL(glb) => glb.clear_color(r, g, b, a),
+        }
+    }
 }
