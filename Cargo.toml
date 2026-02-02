@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [lib]
-crate-type = ["rlib", "cdylib", "staticlib"]
+crate-type = ["rlib","cdylib", "staticlib"]
 
 [dependencies]
 glfw = "0.61.0"
 glfw-sys = { version = "7.0.0", features = ["static-link"] }
+gl = "0.14.0"

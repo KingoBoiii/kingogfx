@@ -16,16 +16,19 @@ pub extern "C" fn kgfx_create_window(title: *const c_char, width: u32, height: u
     let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
 
     let title_str = if title.is_null() {
-      "GLFW window"
+      "[KingoGFX] No window name"
     } else {
       unsafe { CStr::from_ptr(title) }
         .to_str()
-        .unwrap_or("GLFW window")
+        .unwrap_or("No window name")
     };
 
     let (mut window, events) = glfw
       .create_window(width, height, title_str, glfw::WindowMode::Windowed)
       ?;
+
+    glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::OpenGl));
+    glfw.window_hint(glfw::WindowHint::OpenGlProfile(glfw::OpenGlProfileHint::Core));
 
     window.make_current();
     window.set_key_polling(true);

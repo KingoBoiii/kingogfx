@@ -1,6 +1,7 @@
 use crate::window::{KgfxKeyAction, KgfxKeyEvent};
 
 pub mod window;
+pub mod graphics;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn kgfx_init() -> () {
