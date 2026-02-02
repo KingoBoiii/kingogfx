@@ -1,10 +1,10 @@
 use std::ffi::CString;
 
-use kingogfx::window::{
-  KgfxEvent, KgfxEventKind, KgfxKeyAction,
+use kingogfx::{kgfx_is_key_pressed, window::{
+  KgfxEvent, KgfxEventKind,
   kgfx_create_window, kgfx_destroy_window, kgfx_window_poll_event,
   kgfx_window_set_should_close, kgfx_window_should_close, kgfx_window_swap_buffers,
-};
+}};
 
 fn main() {
   let title = CString::new("GLFW window").expect("title contains an interior NUL byte");
@@ -18,7 +18,7 @@ fn main() {
         KgfxEventKind::Key => {
           if let Some(k) = event.as_key() {
             // key 256 = escape key
-            if k.key == 256 && k.action == KgfxKeyAction::Press {
+            if kgfx_is_key_pressed(k, 256) {
               kgfx_window_set_should_close(handle, true);
             }
           }
