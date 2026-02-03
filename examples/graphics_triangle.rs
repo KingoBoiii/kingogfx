@@ -1,13 +1,13 @@
 use std::ffi::CString;
 
-use kingogfx::graphics::buffer::{KgfxBuffer, KgfxBufferDesc, KgfxBufferUsage, kgfx_graphics_create_buffer, kgfx_graphics_destroy_buffer};
 use kingogfx::window::{
   KgfxEvent, KgfxEventKind,
   kgfx_create_window, kgfx_destroy_window, kgfx_window_poll_event,
   kgfx_window_set_should_close, kgfx_window_should_close, kgfx_window_swap_buffers,
 };
 use kingogfx::graphics::{
-  GraphicsContext, KgfxPipeline, KgfxPipelineDesc, KgfxShader, KgfxStatus, kgfx_graphics_clear, kgfx_graphics_clear_color, kgfx_graphics_create_context, kgfx_graphics_create_pipeline, kgfx_graphics_create_shader, kgfx_graphics_destroy_pipeline, kgfx_graphics_draw_arrays, kgfx_graphics_viewport
+  GraphicsContext, KgfxBuffer, KgfxBufferDesc, KgfxBufferUsage, KgfxPipeline, KgfxPipelineDesc, KgfxShader, KgfxStatus, kgfx_graphics_clear, kgfx_graphics_clear_color, kgfx_graphics_create_buffer, kgfx_graphics_create_context, kgfx_graphics_create_pipeline, kgfx_graphics_create_shader, kgfx_graphics_destroy_buffer, kgfx_graphics_destroy_context, kgfx_graphics_destroy_pipeline, kgfx_graphics_destroy_shader, kgfx_graphics_draw_arrays, kgfx_graphics_viewport 
+
 };
 use kingogfx::{kgfx_is_key_pressed};
 
@@ -98,8 +98,8 @@ fn main() {
 
   let vertices: [f32; 6] = [
     -0.5, -0.5,
-      0.5, -0.5,
-      0.0,  0.5,
+     0.5, -0.5,
+     0.0,  0.5,
   ];
 
   let initial_data = vertices.as_ptr() as *const u8;
@@ -137,6 +137,9 @@ fn main() {
 
   kgfx_graphics_destroy_buffer(ctx, vertex_buffer);
   kgfx_graphics_destroy_pipeline(ctx, pipeline);
+  kgfx_graphics_destroy_shader(ctx, shader);
+
+  kgfx_graphics_destroy_context(ctx);
 
   kgfx_destroy_window(handle);
 }

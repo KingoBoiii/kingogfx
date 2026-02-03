@@ -1,12 +1,9 @@
 pub mod backends;
 pub mod ffi;
-pub mod buffer;
 
 pub use ffi::*;
 
 use backends::opengl::OpenGLBackend;
-
-use crate::graphics::{buffer::{BufferBackend, BufferInner, KgfxBuffer, KgfxBufferDesc}};
 
 pub enum Backend {
 	OpenGL(OpenGLBackend),

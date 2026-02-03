@@ -1,6 +1,6 @@
 use glfw::Context;
 
-use crate::{graphics::{KgfxPipelineDesc, KgfxStatus, PipelineBackend, PipelineInner, ShaderBackend, ShaderInner, buffer::{BufferBackend, BufferInner, KgfxBufferDesc, KgfxBufferUsage}}, window::handle::WindowHandle};
+use crate::{graphics::{BufferBackend, BufferInner, KgfxBufferDesc, KgfxBufferUsage, KgfxPipelineDesc, KgfxStatus, PipelineBackend, PipelineInner, ShaderBackend, ShaderInner}, window::handle::WindowHandle};
 use std::{
 	ffi::{CString, c_void},
 	mem::size_of
