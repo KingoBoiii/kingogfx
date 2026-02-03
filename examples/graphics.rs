@@ -7,12 +7,44 @@ use kingogfx::window::{
   kgfx_window_set_should_close, kgfx_window_should_close, kgfx_window_swap_buffers,
 };
 use kingogfx::graphics::{
-  GraphicsContext, KgfxPipeline, KgfxPipelineDesc, KgfxStatus, kgfx_graphics_clear, kgfx_graphics_clear_color, kgfx_graphics_create_context, kgfx_graphics_create_pipeline, kgfx_graphics_destroy_pipeline, kgfx_graphics_draw_arrays, kgfx_graphics_viewport
+  GraphicsContext, KgfxPipeline, KgfxPipelineDesc, KgfxShader, KgfxStatus, kgfx_graphics_clear, kgfx_graphics_clear_color, kgfx_graphics_create_context, kgfx_graphics_create_pipeline, kgfx_graphics_create_shader, kgfx_graphics_destroy_pipeline, kgfx_graphics_draw_arrays, kgfx_graphics_viewport
 };
 use kingogfx::{kgfx_is_key_pressed};
 
-fn create_pipeline(ctx: *mut GraphicsContext) -> *mut KgfxPipeline {
+fn create_shader(ctx: *mut GraphicsContext) -> *mut KgfxShader {
+  let vs_src = r#"
+      #version 330 core
+      layout (location = 0) in vec2 aPos;
+      void main() {
+          gl_Position = vec4(aPos.xy, 0.0, 1.0);
+      }
+  "#;
+
+  let fs_src = r#"
+      #version 330 core
+      out vec4 FragColor;
+      void main() {
+          FragColor = vec4(1.0, 0.6, 0.2, 1.0);
+      }
+  "#;
+
+  // Convert Rust &str -> C-compatible NUL-terminated strings
+  let vs_c = CString::new(vs_src).expect("vertex shader contains an interior NUL byte");
+  let fs_c = CString::new(fs_src).expect("fragment shader contains an interior NUL byte");
+
+  let mut shader: *mut KgfxShader = std::ptr::null_mut();
+
+  let status = kgfx_graphics_create_shader(ctx, vs_c.as_ptr(), fs_c.as_ptr(), &mut shader);
+  if status != KgfxStatus::Ok || shader.is_null() {
+    return std::ptr::null_mut();
+  }
+
+  return shader;
+}
+
+fn create_pipeline(ctx: *mut GraphicsContext, shader: *mut KgfxShader) -> *mut KgfxPipeline {
   let desc = KgfxPipelineDesc {
+    shader: shader,
     wireframe: false
   };
 
@@ -56,7 +88,9 @@ fn main() {
 
   kgfx_graphics_viewport(ctx, 0, 0, 800, 600);
 
-  let pipeline: *mut KgfxPipeline = create_pipeline(ctx);
+  let shader: *mut KgfxShader = create_shader(ctx);
+
+  let pipeline: *mut KgfxPipeline = create_pipeline(ctx, shader);
   if pipeline.is_null() {
     kgfx_destroy_window(handle);
     return;

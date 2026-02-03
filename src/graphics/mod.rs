@@ -6,7 +6,7 @@ pub use ffi::*;
 
 use backends::opengl::OpenGLBackend;
 
-use crate::graphics::{backends::opengl::{OpenGLBuffer, OpenGLPipeline}, buffer::{BufferBackend, BufferInner, KgfxBuffer, KgfxBufferDesc}};
+use crate::graphics::{buffer::{BufferBackend, BufferInner, KgfxBuffer, KgfxBufferDesc}};
 
 pub enum Backend {
 	OpenGL(OpenGLBackend),
@@ -20,9 +20,21 @@ pub struct GraphicsContext {
 }
 
 impl GraphicsContext {
+	pub fn create_shader(&mut self, vertex_shader_source: &str, fragment_shader_source: &str) -> Result<*mut KgfxShader, KgfxStatus> {
+		let inner = match &mut self.backend {
+			Backend::OpenGL(_) => ShaderInner { 
+				backend: ShaderBackend::OpenGL(backends::opengl::OpenGLShader::new(vertex_shader_source, fragment_shader_source)?) 
+			}
+		};
+
+		Ok(Box::into_raw(Box::new(inner)) as *mut KgfxShader)
+	}
+	
 	pub fn create_pipeline(&mut self, desc: KgfxPipelineDesc) -> Result<*mut KgfxPipeline, KgfxStatus> {
 		let inner = match &mut self.backend {
-			Backend::OpenGL(_) => PipelineInner { backend: PipelineBackend::OpenGL(OpenGLPipeline::new(desc)?) }
+			Backend::OpenGL(_) => PipelineInner { 
+				backend: PipelineBackend::OpenGL(backends::opengl::OpenGLPipeline::new(desc)?) 
+			}
 		};
 
 		Ok(Box::into_raw(Box::new(inner)) as *mut KgfxPipeline)
@@ -30,7 +42,9 @@ impl GraphicsContext {
 	
 	pub fn create_buffer(&mut self, desc: KgfxBufferDesc, initial_data: *const u8) -> Result<*mut KgfxBuffer, KgfxStatus> {
 		let inner = match &mut self.backend {
-			Backend::OpenGL(_) => BufferInner { backend: BufferBackend::OpenGL(OpenGLBuffer::new(desc, initial_data)?) }
+			Backend::OpenGL(_) => BufferInner { 
+				backend: BufferBackend::OpenGL(backends::opengl::OpenGLBuffer::new(desc, initial_data)?) 
+			}
 		};
 
 		Ok(Box::into_raw(Box::new(inner)) as *mut KgfxBuffer)

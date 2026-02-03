@@ -1,7 +1,10 @@
 use glfw::Context;
 
-use crate::{graphics::{KgfxPipelineDesc, KgfxStatus, PipelineBackend, PipelineInner, buffer::{BufferBackend, BufferInner, KgfxBufferDesc, KgfxBufferUsage}}, window::handle::WindowHandle};
-use std::{ffi::c_void};
+use crate::{graphics::{KgfxPipelineDesc, KgfxStatus, PipelineBackend, PipelineInner, ShaderBackend, ShaderInner, buffer::{BufferBackend, BufferInner, KgfxBufferDesc, KgfxBufferUsage}}, window::handle::WindowHandle};
+use std::{
+	ffi::{CString, c_void},
+	mem::size_of
+};
 
 // ==================== BACKEND ====================
 
@@ -47,14 +50,120 @@ impl OpenGLBackend {
 	}
 }
 
+// ==================== SHADER ====================
+
+#[derive(Copy, Clone)]
+pub struct OpenGLShader {
+	pub id: u32,
+}
+
+impl OpenGLShader {
+	pub fn new(vertex_shader_source: &str, fragment_shader_source: &str) -> Result<Self, KgfxStatus> {
+		let vertex_shader = match Self::compile_shader(vertex_shader_source, gl::VERTEX_SHADER) {
+			Some(s) => s,
+			None => return Err(KgfxStatus::InitFailed)
+		};
+
+		let fragment_shader = match Self::compile_shader(fragment_shader_source, gl::FRAGMENT_SHADER) {
+			Some(s) => s,
+			None => {
+				unsafe {
+					gl::DeleteShader(vertex_shader);
+				}
+				return Err(KgfxStatus::InitFailed)
+			} 
+		};
+		
+		let program = match Self::link_program(vertex_shader, fragment_shader) {
+			Some(p) => p,
+			None => {
+				unsafe {
+					gl::DeleteShader(vertex_shader);
+					gl::DeleteShader(fragment_shader);
+				}
+				return Err(KgfxStatus::InitFailed);
+			}
+		};
+
+		Ok(Self {
+			id: program,
+		})
+	}
+
+	pub fn bind(&mut self) -> () {
+		unsafe {
+			gl::UseProgram(self.id);
+		}
+	}
+
+	pub fn unbind(&mut self) -> () {
+		unsafe {
+			gl::UseProgram(0);
+		}
+	}
+
+	fn compile_shader(src: &str, shader_type: u32) -> Option<u32> {
+		unsafe {
+			let shader = gl::CreateShader(shader_type);
+			
+			let c_str = CString::new(src).ok()?;
+			gl::ShaderSource(shader, 1, &c_str.as_ptr(), std::ptr::null());
+			gl::CompileShader(shader);
+
+			let mut ok = 0;
+			gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut ok);
+			if ok == 0 {
+					gl::DeleteShader(shader);
+					return None;
+			}
+			
+			return Some(shader);
+		}
+	}
+
+	fn link_program(vertex_shader: u32, fragment_shader: u32) -> Option<u32> {
+		unsafe {
+			let program = gl::CreateProgram();
+			
+			gl::AttachShader(program, vertex_shader);
+			gl::AttachShader(program, fragment_shader);
+
+			gl::LinkProgram(program);
+
+			let mut ok = 0;
+			gl::GetProgramiv(program, gl::LINK_STATUS, &mut ok);
+			if ok == 0 {
+					gl::DeleteProgram(program);
+					return None;
+			}
+			
+			return Some(program);
+		}
+	}
+}
+
+impl Drop for ShaderInner {
+  fn drop(&mut self) {
+    match &mut self.backend {
+      ShaderBackend::OpenGL(b) => unsafe {
+        if b.id != 0 {
+					gl::DeleteProgram(b.id);
+          b.id = 0;
+        }
+      },
+    }
+  }
+}
+
 // ==================== PIPELINE ====================
 
 pub struct OpenGLPipeline {
   pub id: u32,
+	pub shader: OpenGLShader
 }
 
 impl OpenGLPipeline {
-	pub fn new(_desc: KgfxPipelineDesc) -> Result<Self, KgfxStatus> {
+	pub fn new(desc: KgfxPipelineDesc) -> Result<Self, KgfxStatus> {
 		let mut id = 0u32;
 		
 		unsafe {
@@ -66,12 +175,24 @@ impl OpenGLPipeline {
 			gl::BindVertexArray(id);
 		}
 
+		// KgfxShader handle -> ShaderInner -> (kopiér OpenGLShader ud)
+		let shader = unsafe {
+				let shader_inner = &mut *(desc.shader as *mut ShaderInner);
+				match &shader_inner.backend {
+						ShaderBackend::OpenGL(gl_shader) => *gl_shader, // Copy
+						_ => return Err(KgfxStatus::Unsupported),
+				}
+		};
+
 		Ok(Self {
 			id,
+			shader: shader
 		})
 	}
 
 	pub fn bind(&mut self) -> () {
+		self.shader.bind();
+
 		unsafe {
 			gl::BindVertexArray(self.id);
 		}
@@ -81,6 +202,8 @@ impl OpenGLPipeline {
 		unsafe {
 			gl::BindVertexArray(0);
 		}
+
+		self.shader.unbind();
 	}
 }
 
@@ -135,6 +258,10 @@ impl OpenGLBuffer {
 				data_ptr,
 				gl::STATIC_DRAW,
 			);
+
+			let stride = (2 * size_of::<f32>()) as i32;
+			gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, stride, std::ptr::null());
+			gl::EnableVertexAttribArray(0);
 		}
 
 		Ok(Self {
