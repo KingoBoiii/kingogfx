@@ -52,7 +52,6 @@ impl OpenGLBackend {
 
 // ==================== SHADER ====================
 
-#[derive(Copy, Clone)]
 pub struct OpenGLShader {
 	pub id: u32,
 }
@@ -90,13 +89,13 @@ impl OpenGLShader {
 		})
 	}
 
-	pub fn bind(&mut self) -> () {
+	pub fn bind(&self) -> () {
 		unsafe {
 			gl::UseProgram(self.id);
 		}
 	}
 
-	pub fn unbind(&mut self) -> () {
+	pub fn unbind(&self) -> () {
 		unsafe {
 			gl::UseProgram(0);
 		}
@@ -159,7 +158,7 @@ impl Drop for ShaderInner {
 
 pub struct OpenGLPipeline {
   pub id: u32,
-	pub shader: OpenGLShader
+	pub(crate) shader: *mut ShaderInner
 }
 
 impl OpenGLPipeline {
@@ -175,25 +174,36 @@ impl OpenGLPipeline {
 			gl::BindVertexArray(id);
 		}
 
+		let shader_ptr = desc.shader as *mut ShaderInner;
+		unsafe {
+			let shader_inner = &mut *shader_ptr;
+			match &shader_inner.backend {
+				ShaderBackend::OpenGL(_) => {}
+			}
+		}
+
 		// KgfxShader handle -> ShaderInner -> (kopiér OpenGLShader ud)
-		let shader = unsafe {
-				let shader_inner = &mut *(desc.shader as *mut ShaderInner);
-				match &shader_inner.backend {
-						ShaderBackend::OpenGL(gl_shader) => *gl_shader, // Copy
-						_ => return Err(KgfxStatus::Unsupported),
-				}
-		};
+		// let shader = unsafe {
+		// 		let shader_inner = &mut *(desc.shader as *mut ShaderInner);
+		// 		match &shader_inner.backend {
+		// 				ShaderBackend::OpenGL(gl_shader) => *gl_shader, // Copy
+		// 				_ => return Err(KgfxStatus::Unsupported),
+		// 		}
+		// };
 
 		Ok(Self {
 			id,
-			shader: shader
+			shader: shader_ptr
 		})
 	}
 
 	pub fn bind(&mut self) -> () {
-		self.shader.bind();
-
 		unsafe {
+			let shader_inner = &mut *self.shader;
+			match &shader_inner.backend {
+				ShaderBackend::OpenGL(gl_shader) => gl_shader.bind(),
+			}
+
 			gl::BindVertexArray(self.id);
 		}
 	}
@@ -201,9 +211,8 @@ impl OpenGLPipeline {
 	pub fn unbind(&mut self) -> () {
 		unsafe {
 			gl::BindVertexArray(0);
+			gl::UseProgram(0);
 		}
-
-		self.shader.unbind();
 	}
 }
 
