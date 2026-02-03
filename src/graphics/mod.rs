@@ -5,6 +5,8 @@ pub use ffi::*;
 
 use backends::opengl::OpenGLBackend;
 
+use crate::graphics::backends::{BufferBackend, BufferInner, PipelineBackend, PipelineInner, ShaderBackend, ShaderInner};
+
 pub enum Backend {
 	OpenGL(OpenGLBackend),
 	// Vulkan(...),

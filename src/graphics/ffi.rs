@@ -1,9 +1,8 @@
 use std::ffi::CStr;
 use std::os::raw::c_char;
 
-use crate::graphics::backends::opengl::{OpenGLBuffer, OpenGLPipeline, OpenGLShader};
 use crate::graphics::{Backend, GraphicsContext};
-use crate::graphics::backends;
+use crate::graphics::backends::{self, BufferInner, PipelineInner, ShaderInner};
 use crate::window::handle::WindowHandle;
 
 #[repr(C)]
@@ -173,15 +172,6 @@ pub struct KgfxShaderDesc {
     pub source_len: usize,
 }
 
-pub(crate) enum ShaderBackend {
-  OpenGL(OpenGLShader),
-  // Vulkan(...), Dx11(...), Dx12(...)
-}
-
-pub(crate) struct ShaderInner {
-  pub backend: ShaderBackend,
-}
-
 #[unsafe(no_mangle)]
 pub extern "C" fn kgfx_graphics_create_shader(ctx: *mut GraphicsContext, vertex_shader_source: *const c_char, fragment_shader_source: *const c_char, out_shader: *mut *mut KgfxShader) -> KgfxStatus {
     if ctx.is_null() || out_shader.is_null() {
@@ -246,15 +236,6 @@ pub struct KgfxPipelineDesc {
 	pub wireframe: bool,
 }
 
-pub(crate) enum PipelineBackend {
-  OpenGL(OpenGLPipeline),
-  // Vulkan(...), Dx11(...), Dx12(...)
-}
-
-pub(crate) struct PipelineInner {
-  pub backend: PipelineBackend,
-}
-
 #[unsafe(no_mangle)]
 pub extern "C" fn kgfx_graphics_create_pipeline(ctx: *mut GraphicsContext, desc: KgfxPipelineDesc, out_pipeline: *mut *mut KgfxPipeline) -> KgfxStatus {
     if ctx.is_null() || out_pipeline.is_null() {
@@ -312,15 +293,6 @@ pub struct KgfxBufferDesc {
   pub struct_size: u32,
   pub usage: KgfxBufferUsage,
   pub size_bytes: usize,
-}
-
-pub(crate) enum BufferBackend {
-  OpenGL(OpenGLBuffer),
-  // Vulkan(...), Dx11(...), Dx12(...)
-}
-
-pub(crate) struct BufferInner {
-  pub backend: BufferBackend,
 }
 
 #[unsafe(no_mangle)]
