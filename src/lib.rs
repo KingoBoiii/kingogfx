@@ -16,6 +16,11 @@ pub extern "C" fn kgfx_is_key_pressed(event: KgfxKeyEvent, key: i32) -> bool {
 	event.key == key && event.action == KgfxKeyAction::Press
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn kgfx_is_key_released(event: KgfxKeyEvent, key: i32) -> bool {
+	event.key == key && event.action == KgfxKeyAction::Release
+}
+
 pub fn add(left: u64, right: u64) -> u64 {
 	left + right
 }
