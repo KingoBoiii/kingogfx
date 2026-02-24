@@ -1,3 +1,5 @@
+use crate::window::{KgfxKey, KgfxKeyEvent, KgfxKeyModifiers};
+
 extern crate glfw;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -70,16 +72,6 @@ pub struct KgfxEventRaw {
     pub c: i32,
     pub d: i32,
 }
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Default)]
-pub struct KgfxKeyEvent {
-    pub key: i32,
-    pub scancode: i32,
-    pub action: KgfxKeyAction,
-    pub mods: i32,
-}
-
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub union KgfxEventData {
@@ -105,6 +97,16 @@ impl Default for KgfxEvent {
     }
 }
 
+impl From<KeyEvent> for KgfxKeyEvent {
+    fn from(k: KeyEvent) -> Self {
+        Self {
+            key: KgfxKey::from_i32(k.key).unwrap_or(KgfxKey::Unknown),
+            action: k.action.into(),
+            modifiers: KgfxKeyModifiers::from_i32(k.mods),
+        }
+    }
+}
+
 impl From<WindowEvent> for KgfxEvent {
     fn from(value: WindowEvent) -> Self {
         match value {
@@ -116,14 +118,7 @@ impl From<WindowEvent> for KgfxEvent {
             },
             WindowEvent::Key(k) => Self {
                 kind: KgfxEventKind::Key,
-                data: KgfxEventData {
-                    key: KgfxKeyEvent {
-                        key: k.key,
-                        scancode: k.scancode,
-                        action: k.action.into(),
-                        mods: k.mods,
-                    },
-                },
+                data: KgfxEventData { key: k.into() },
             },
             WindowEvent::Unknown => Self::default(),
         }

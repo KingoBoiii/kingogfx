@@ -131,7 +131,7 @@ fn main() {
         while kgfx_window_poll_event(window, &mut event) {
             if let KgfxEventKind::Key = event.kind {
                 if let Some(k) = event.as_key() {
-                    if kgfx_is_key_pressed(k, 256) {
+                    if kgfx_is_key_pressed(k, kingogfx::window::KgfxKey::Escape) {
                         kgfx_window_set_should_close(window, true);
                     }
                 }

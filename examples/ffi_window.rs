@@ -28,12 +28,12 @@ fn main() {
             if let KgfxEventKind::Key = event.kind {
                 if let Some(k) = event.as_key() {
                     println!(
-                        "Key event -> key: {}, scancode: {}, action: {:?}, mods: {}",
-                        k.key, k.scancode, k.action, k.mods
+                        "Key event -> key: {}, action: {:?}, mods: {}",
+                        k.key.to_i32(), k.action, k.modifiers.bits()
                     );
 
                     // 256 = ESC
-                    if kgfx_is_key_pressed(k, 256) {
+                    if kgfx_is_key_pressed(k, kingogfx::window::KgfxKey::Escape) {
                         kgfx_window_set_should_close(handle, true);
                     }
                 }
