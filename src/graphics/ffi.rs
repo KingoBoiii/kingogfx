@@ -1,9 +1,10 @@
 use std::ffi::CStr;
 use std::os::raw::c_char;
+use std::panic::AssertUnwindSafe;
 
 use crate::graphics::{Backend, GraphicsContext};
 use crate::graphics::backends::{self, BufferInner, PipelineInner, ShaderInner};
-use crate::window::handle::WindowHandle;
+use crate::window::Window;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -32,123 +33,127 @@ pub struct KgfxContext { _private: [u8; 0] }
 // ==================== CONTEXT ====================
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kgfx_graphics_create_context(kind: BackendKind, window_handle: *mut WindowHandle, out_ctx: *mut *mut GraphicsContext) -> KgfxStatus {
-	if window_handle.is_null() || out_ctx.is_null() {
-		return KgfxStatus::NullPointer;
-	}
+pub extern "C" fn kgfx_graphics_create_context(
+    kind: BackendKind,
+    window_handle: *mut Window,
+    out_ctx: *mut *mut GraphicsContext,
+) -> KgfxStatus {
+    if window_handle.is_null() || out_ctx.is_null() {
+        return KgfxStatus::InvalidArg;
+    }
 
-	// Sæt altid out til null som default (så caller ikke får garbage ved fejl)
-	unsafe { *out_ctx = std::ptr::null_mut() };
+    let window = unsafe { &mut *window_handle };
 
-	let result = std::panic::catch_unwind(|| {
-		let window = unsafe { &mut *window_handle };
+    unsafe { *out_ctx = std::ptr::null_mut() };
 
-		let backend = match kind {
-			BackendKind::OpenGL => {
-				let glb = backends::opengl::OpenGLBackend::new(window).ok_or(KgfxStatus::InitFailed)?;
-				Backend::OpenGL(glb)
-			}
-			_ => return Err(KgfxStatus::Unsupported),
-		};
+    let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+        let backend = match kind {
+            BackendKind::OpenGL => {
+                let glb = backends::opengl::OpenGLBackend::new(window)
+                    .ok_or(KgfxStatus::InitFailed)?;
+                Backend::OpenGL(glb)
+            }
+            _ => return Err(KgfxStatus::Unsupported),
+        };
 
-		let ctx = GraphicsContext { backend };
-		let ptr = Box::into_raw(Box::new(ctx));
-		unsafe { *out_ctx = ptr };
+        let ctx = GraphicsContext { backend };
+        let ptr = Box::into_raw(Box::new(ctx));
+        unsafe { *out_ctx = ptr };
 
-		Ok::<(), KgfxStatus>(())
-	});
+        Ok::<(), KgfxStatus>(())
+    }));
 
-	match result {
-		Ok(Ok(())) => KgfxStatus::Ok,
-		Ok(Err(status)) => status,
-		Err(_) => KgfxStatus::Panic,
-	}
+    match result {
+        Ok(Ok(())) => KgfxStatus::Ok,
+        Ok(Err(status)) => status,
+        Err(_) => KgfxStatus::Panic,
+    }
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn kgfx_graphics_destroy_context(ctx: *mut GraphicsContext) -> KgfxStatus {
-	if ctx.is_null() {
-		return KgfxStatus::NullPointer;
-	}
+    if ctx.is_null() {
+        return KgfxStatus::NullPointer;
+    }
 
-	let result = std::panic::catch_unwind(|| unsafe {
-		drop(Box::from_raw(ctx));
-	});
+    let result = std::panic::catch_unwind(|| unsafe {
+        drop(Box::from_raw(ctx));
+    });
 
-	match result {
-		Ok(()) => KgfxStatus::Ok,
-		Err(_) => KgfxStatus::Panic,
-	}
+    match result {
+        Ok(()) => KgfxStatus::Ok,
+        Err(_) => KgfxStatus::Panic,
+    }
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn kgfx_graphics_draw_arrays(ctx: *mut GraphicsContext, pipeline: *mut KgfxPipeline, count: i32) -> KgfxStatus {
-	if ctx.is_null() {
-		return KgfxStatus::NullPointer;
-	}
+    if ctx.is_null() {
+        return KgfxStatus::NullPointer;
+    }
 
-	let result = std::panic::catch_unwind(|| unsafe {
-		(*ctx).draw_arrays(pipeline, count);
-	});
+    let result = std::panic::catch_unwind(|| unsafe {
+        (*ctx).draw_arrays(pipeline, count);
+    });
 
-	match result {
-		Ok(()) => KgfxStatus::Ok,
-		Err(_) => KgfxStatus::Panic,
-	}
+    match result {
+        Ok(()) => KgfxStatus::Ok,
+        Err(_) => KgfxStatus::Panic,
+    }
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn kgfx_graphics_viewport(ctx: *mut GraphicsContext, x: i32, y: i32, width: i32, height: i32) -> KgfxStatus {
-	if ctx.is_null() {
-		return KgfxStatus::NullPointer;
-	}
+    if ctx.is_null() {
+        return KgfxStatus::NullPointer;
+    }
 
-	let result = std::panic::catch_unwind(|| unsafe {
-		(*ctx).viewport(x, y, width, height);
-	});
+    let result = std::panic::catch_unwind(|| unsafe {
+        (*ctx).viewport(x, y, width, height);
+    });
 
-	match result {
-		Ok(()) => KgfxStatus::Ok,
-		Err(_) => KgfxStatus::Panic,
-	}
+    match result {
+        Ok(()) => KgfxStatus::Ok,
+        Err(_) => KgfxStatus::Panic,
+    }
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn kgfx_graphics_clear(ctx: *mut GraphicsContext) -> KgfxStatus {
-	if ctx.is_null() {
-		return KgfxStatus::NullPointer;
-	}
+    if ctx.is_null() {
+        return KgfxStatus::NullPointer;
+    }
 
-	let result = std::panic::catch_unwind(|| unsafe {
-		(*ctx).clear();
-	});
+    let result = std::panic::catch_unwind(|| unsafe {
+        (*ctx).clear();
+    });
 
-	match result {
-		Ok(()) => KgfxStatus::Ok,
-		Err(_) => KgfxStatus::Panic,
-	}
+    match result {
+        Ok(()) => KgfxStatus::Ok,
+        Err(_) => KgfxStatus::Panic,
+    }
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn kgfx_graphics_clear_color(
-	ctx: *mut GraphicsContext,
-	red: f32,
-	green: f32,
-	blue: f32,
-	alpha: f32,
+    ctx: *mut GraphicsContext,
+    red: f32,
+    green: f32,
+    blue: f32,
+    alpha: f32,
 ) -> KgfxStatus {
-	if ctx.is_null() {
-		return KgfxStatus::NullPointer;
-	}
+    if ctx.is_null() {
+        return KgfxStatus::NullPointer;
+    }
 
-	let result = std::panic::catch_unwind(|| unsafe {
-		(*ctx).clear_color(red, green, blue, alpha);
-	});
+    let result = std::panic::catch_unwind(|| unsafe {
+        (*ctx).clear_color(red, green, blue, alpha);
+    });
 
-	match result {
-		Ok(()) => KgfxStatus::Ok,
-		Err(_) => KgfxStatus::Panic,
-	}
+    match result {
+        Ok(()) => KgfxStatus::Ok,
+        Err(_) => KgfxStatus::Panic,
+    }
 }
 
 // ==================== SHADER ====================

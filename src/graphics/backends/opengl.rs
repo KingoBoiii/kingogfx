@@ -1,6 +1,4 @@
-use glfw::Context;
-
-use crate::{graphics::{BufferBackend, BufferInner, KgfxBufferDesc, KgfxBufferUsage, KgfxPipelineDesc, KgfxStatus, PipelineBackend, PipelineInner, ShaderBackend, ShaderInner}, window::handle::WindowHandle};
+use crate::{graphics::{BufferBackend, BufferInner, KgfxBufferDesc, KgfxBufferUsage, KgfxPipelineDesc, KgfxStatus, PipelineBackend, PipelineInner, ShaderBackend, ShaderInner}, window::{Window}};
 use std::{
 	ffi::{CString, c_void},
 	mem::size_of
@@ -11,134 +9,131 @@ use std::{
 pub struct OpenGLBackend;
 
 impl OpenGLBackend {
-	pub fn new(window: &mut WindowHandle) -> Option<Self> {
-		// GLFW/OpenGL: context skal være current før du loader pointers
-		window.window.make_current();
+    pub(crate) fn new(window: &mut Window) -> Option<Self> {
+        // GLFW/OpenGL: context skal være current før du loader pointers
+        window.make_current();
 
-		gl::load_with(|symbol| match window.window.get_proc_address(symbol) {
-			Some(proc_addr) => proc_addr as *const c_void,
-			None => std::ptr::null(),
-		});
+        gl::load_with(|name| window.get_proc_address(name));
 
-		Some(Self)
-	}
+        Some(Self)
+    }
 
-	pub fn draw_arrays(&mut self, pipeline: &mut OpenGLPipeline, count: i32) -> () {
-		unsafe {
-			pipeline.bind();
-			gl::DrawArrays(gl::TRIANGLES, 0, count);
-			pipeline.unbind();
-		}
-	}
+    pub fn draw_arrays(&mut self, pipeline: &mut OpenGLPipeline, count: i32) -> () {
+        unsafe {
+            pipeline.bind();
+            gl::DrawArrays(gl::TRIANGLES, 0, count);
+            pipeline.unbind();
+        }
+    }
 
-	pub fn viewport(&mut self, x: i32, y: i32, width: i32, height: i32) -> () {
-		unsafe {
-			gl::Viewport(x, y, width, height);
-		}
-	}
+    pub fn viewport(&mut self, x: i32, y: i32, width: i32, height: i32) -> () {
+        unsafe {
+            gl::Viewport(x, y, width, height);
+        }
+    }
 
-	pub fn clear(&mut self) -> () {
-		unsafe {
-			gl::Clear(gl::COLOR_BUFFER_BIT);
-		}
-	}
+    pub fn clear(&mut self) -> () {
+        unsafe {
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+        }
+    }
 
-	pub fn clear_color(&mut self, r: f32, g: f32, b: f32, a: f32) -> () {
-		unsafe {
-			gl::ClearColor(r, g, b, a);
-		}
-	}
+    pub fn clear_color(&mut self, r: f32, g: f32, b: f32, a: f32) -> () {
+        unsafe {
+            gl::ClearColor(r, g, b, a);
+        }
+    }
 }
 
 // ==================== SHADER ====================
 
 pub struct OpenGLShader {
-	pub id: u32,
+    pub id: u32,
 }
 
 impl OpenGLShader {
-	pub fn new(vertex_shader_source: &str, fragment_shader_source: &str) -> Result<Self, KgfxStatus> {
-		let vertex_shader = match Self::compile_shader(vertex_shader_source, gl::VERTEX_SHADER) {
-			Some(s) => s,
-			None => return Err(KgfxStatus::InitFailed)
-		};
+    pub fn new(vertex_shader_source: &str, fragment_shader_source: &str) -> Result<Self, KgfxStatus> {
+        let vertex_shader = match Self::compile_shader(vertex_shader_source, gl::VERTEX_SHADER) {
+            Some(s) => s,
+            None => return Err(KgfxStatus::InitFailed)
+        };
 
-		let fragment_shader = match Self::compile_shader(fragment_shader_source, gl::FRAGMENT_SHADER) {
-			Some(s) => s,
-			None => {
-				unsafe {
-					gl::DeleteShader(vertex_shader);
-				}
-				return Err(KgfxStatus::InitFailed)
-			} 
-		};
-		
-		let program = match Self::link_program(vertex_shader, fragment_shader) {
-			Some(p) => p,
-			None => {
-				unsafe {
-					gl::DeleteShader(vertex_shader);
-					gl::DeleteShader(fragment_shader);
-				}
-				return Err(KgfxStatus::InitFailed);
-			}
-		};
+        let fragment_shader = match Self::compile_shader(fragment_shader_source, gl::FRAGMENT_SHADER) {
+            Some(s) => s,
+            None => {
+                unsafe {
+                    gl::DeleteShader(vertex_shader);
+                }
+                return Err(KgfxStatus::InitFailed)
+            } 
+        };
+        
+        let program = match Self::link_program(vertex_shader, fragment_shader) {
+            Some(p) => p,
+            None => {
+                unsafe {
+                    gl::DeleteShader(vertex_shader);
+                    gl::DeleteShader(fragment_shader);
+                }
+                return Err(KgfxStatus::InitFailed);
+            }
+        };
 
-		Ok(Self {
-			id: program,
-		})
-	}
+        Ok(Self {
+            id: program,
+        })
+    }
 
-	pub fn bind(&self) -> () {
-		unsafe {
-			gl::UseProgram(self.id);
-		}
-	}
+    pub fn bind(&self) -> () {
+        unsafe {
+            gl::UseProgram(self.id);
+        }
+    }
 
-	pub fn unbind(&self) -> () {
-		unsafe {
-			gl::UseProgram(0);
-		}
-	}
+    pub fn unbind(&self) -> () {
+        unsafe {
+            gl::UseProgram(0);
+        }
+    }
 
-	fn compile_shader(src: &str, shader_type: u32) -> Option<u32> {
-		unsafe {
-			let shader = gl::CreateShader(shader_type);
-			
-			let c_str = CString::new(src).ok()?;
-			gl::ShaderSource(shader, 1, &c_str.as_ptr(), std::ptr::null());
-			gl::CompileShader(shader);
+    fn compile_shader(src: &str, shader_type: u32) -> Option<u32> {
+        unsafe {
+            let shader = gl::CreateShader(shader_type);
+            
+            let c_str = CString::new(src).ok()?;
+            gl::ShaderSource(shader, 1, &c_str.as_ptr(), std::ptr::null());
+            gl::CompileShader(shader);
 
-			let mut ok = 0;
-			gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut ok);
-			if ok == 0 {
-					gl::DeleteShader(shader);
-					return None;
-			}
-			
-			return Some(shader);
-		}
-	}
+            let mut ok = 0;
+            gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut ok);
+            if ok == 0 {
+                    gl::DeleteShader(shader);
+                    return None;
+            }
+            
+            return Some(shader);
+        }
+    }
 
-	fn link_program(vertex_shader: u32, fragment_shader: u32) -> Option<u32> {
-		unsafe {
-			let program = gl::CreateProgram();
-			
-			gl::AttachShader(program, vertex_shader);
-			gl::AttachShader(program, fragment_shader);
+    fn link_program(vertex_shader: u32, fragment_shader: u32) -> Option<u32> {
+        unsafe {
+            let program = gl::CreateProgram();
+            
+            gl::AttachShader(program, vertex_shader);
+            gl::AttachShader(program, fragment_shader);
 
-			gl::LinkProgram(program);
+            gl::LinkProgram(program);
 
-			let mut ok = 0;
-			gl::GetProgramiv(program, gl::LINK_STATUS, &mut ok);
-			if ok == 0 {
-					gl::DeleteProgram(program);
-					return None;
-			}
-			
-			return Some(program);
-		}
-	}
+            let mut ok = 0;
+            gl::GetProgramiv(program, gl::LINK_STATUS, &mut ok);
+            if ok == 0 {
+                    gl::DeleteProgram(program);
+                    return None;
+            }
+            
+            return Some(program);
+        }
+    }
 }
 
 impl Drop for ShaderInner {
