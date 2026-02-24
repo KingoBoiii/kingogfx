@@ -158,7 +158,7 @@ impl Drop for ShaderInner {
 
 pub struct OpenGLPipeline {
   pub id: u32,
-	pub(crate) shader: *mut ShaderInner
+	shader: *mut ShaderInner
 }
 
 impl OpenGLPipeline {
