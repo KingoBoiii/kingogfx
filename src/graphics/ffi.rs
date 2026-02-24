@@ -4,6 +4,7 @@ use std::panic::AssertUnwindSafe;
 
 use crate::graphics::{Backend, GraphicsContext};
 use crate::graphics::backends::{self, BufferInner, PipelineInner, ShaderInner};
+use crate::window::ffi::KgfxWindow;
 use crate::window::Window;
 
 #[repr(C)]
@@ -35,14 +36,15 @@ pub struct KgfxContext { _private: [u8; 0] }
 #[unsafe(no_mangle)]
 pub extern "C" fn kgfx_graphics_create_context(
     kind: BackendKind,
-    window_handle: *mut Window,
+    window_handle: *mut KgfxWindow,
     out_ctx: *mut *mut GraphicsContext,
 ) -> KgfxStatus {
     if window_handle.is_null() || out_ctx.is_null() {
         return KgfxStatus::InvalidArg;
     }
 
-    let window = unsafe { &mut *window_handle };
+    // Opaque FFI handle -> intern Rust type
+    let window = unsafe { &mut *window_handle.cast::<Window>() };
 
     unsafe { *out_ctx = std::ptr::null_mut() };
 

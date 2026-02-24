@@ -11,11 +11,3 @@ crate-type = ["rlib"]
 glfw = "0.61.0"
 glfw-sys = { version = "7.0.0", features = ["static-link"] }
 gl = "0.14.0"
-
-[[example]]
-name = "rust_window"
-path = "examples/rust/window.rs"
-
-[[example]]
-name = "ffi_window"
-path = "examples/ffi/window.rs"
