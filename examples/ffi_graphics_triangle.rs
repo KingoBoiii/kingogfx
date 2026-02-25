@@ -130,7 +130,7 @@ fn main() {
         kgfx_graphics_draw_arrays(ctx, pipeline, 3);
 
         while kgfx_window_poll_event(window, &mut event) {
-            if let KgfxEventKind::Key = event.kind {
+                if let KgfxEventKind::KeyEvent = event.kind {
                 if let Some(k) = event.as_key() {
                     if kgfx_is_key_pressed(k, KgfxKey::Escape) {
                         kgfx_window_set_should_close(window, true);

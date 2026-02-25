@@ -30,7 +30,7 @@ pub enum WindowEvent {
 pub enum KgfxEventKind {
     None = 0,
     Close = 1,
-    Key = 2,
+    KeyEvent = 2,
 }
 
 impl Default for KgfxEventKind {
@@ -84,7 +84,7 @@ impl From<WindowEvent> for KgfxEvent {
                 },
             },
             WindowEvent::Key(k) => Self {
-                kind: KgfxEventKind::Key,
+                kind: KgfxEventKind::KeyEvent,
                 data: KgfxEventData { key: k },
             },
             WindowEvent::Unknown => Self::default(),
@@ -94,7 +94,7 @@ impl From<WindowEvent> for KgfxEvent {
 
 impl KgfxEvent {
     pub fn as_key(&self) -> Option<KeyEvent> {
-        if self.kind == KgfxEventKind::Key {
+        if self.kind == KgfxEventKind::KeyEvent {
             Some(unsafe { self.data.key })
         } else {
             None
