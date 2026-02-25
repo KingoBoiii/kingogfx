@@ -1,7 +1,4 @@
-use std::collections::HashSet;
-
 use super::events::KeyAction;
-use super::WindowEvent;
 
 #[repr(i32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -162,43 +159,9 @@ pub struct KeyEvent {
 
 #[derive(Debug, Clone, Default)]
 pub struct Input {
-    pressed_keys: HashSet<Key>,
 }
 
 impl Input {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn clear(&mut self) {
-        self.pressed_keys.clear();
-    }
-
-    pub fn update_key_event(&mut self, event: KeyEvent) {
-        match event.action {
-            KeyAction::Press | KeyAction::Repeat => {
-                self.pressed_keys.insert(event.key);
-            }
-            KeyAction::Release => {
-                self.pressed_keys.remove(&event.key);
-            }
-        }
-    }
-
-    pub fn update_window_event(&mut self, event: WindowEvent) {
-        if let WindowEvent::Key(key_event) = event {
-            self.update_key_event(key_event);
-        }
-    }
-
-    pub fn is_down(&self, key: Key) -> bool {
-        self.pressed_keys.contains(&key)
-    }
-
-    pub fn is_up(&self, key: Key) -> bool {
-        !self.is_down(key)
-    }
-
     pub fn is_key_pressed(event: KeyEvent, key: Key) -> bool {
         event.key == key && event.action == KeyAction::Press
     }
