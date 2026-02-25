@@ -113,6 +113,6 @@ impl Window {
     }
 }
 
-pub type KgfxKey = Key;
+pub type KgfxKeyCode = KeyCode;
 pub type KgfxKeyModifiers = KeyModifiers;
 pub type KgfxKeyEvent = KeyEvent;

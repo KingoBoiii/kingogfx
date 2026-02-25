@@ -2,7 +2,7 @@ use super::events::KeyAction;
 
 #[repr(i32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum Key {
+pub enum KeyCode {
     Unknown = -1,
 
     Space = 32,
@@ -83,9 +83,9 @@ pub enum Key {
     Menu = 348,
 }
 
-impl Key {
+impl KeyCode {
     pub const fn from_i32(value: i32) -> Option<Self> {
-        use Key::*;
+        use KeyCode::*;
         Some(match value {
             -1 => Unknown,
 
@@ -152,7 +152,7 @@ impl KeyModifiers {
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct KeyEvent {
-    pub key: Key,
+    pub key_code: KeyCode,
     pub action: KeyAction,
     pub modifiers: KeyModifiers,
 }
@@ -162,15 +162,15 @@ pub struct Input {
 }
 
 impl Input {
-    pub fn is_key_pressed(event: KeyEvent, key: Key) -> bool {
-        event.key == key && event.action == KeyAction::Press
+    pub fn is_key_pressed(event: KeyEvent, key: KeyCode) -> bool {
+        event.key_code == key && event.action == KeyAction::Press
     }
 
-    pub fn is_key_released(event: KeyEvent, key: Key) -> bool {
-        event.key == key && event.action == KeyAction::Release
+    pub fn is_key_released(event: KeyEvent, key: KeyCode) -> bool {
+        event.key_code == key && event.action == KeyAction::Release
     }
 
-    pub fn is_key_repeat(event: KeyEvent, key: Key) -> bool {
-        event.key == key && event.action == KeyAction::Repeat
+    pub fn is_key_repeat(event: KeyEvent, key: KeyCode) -> bool {
+        event.key_code == key && event.action == KeyAction::Repeat
     }
 }

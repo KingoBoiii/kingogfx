@@ -2,7 +2,7 @@ use std::ffi::{CString};
 
 use kingogfx::kgfx_is_key_pressed;
 
-use kingogfx::window::KgfxKey;
+use kingogfx::window::KgfxKeyCode;
 use kingogfx::window::events::{KgfxEvent, KgfxEventKind};
 use kingogfx::window::ffi::{
     KgfxWindow, kgfx_create_window, kgfx_destroy_window, kgfx_window_focus, kgfx_window_poll_event, kgfx_window_set_should_close, kgfx_window_should_close, kgfx_window_swap_buffers
@@ -132,7 +132,7 @@ fn main() {
         while kgfx_window_poll_event(window, &mut event) {
                 if let KgfxEventKind::KeyEvent = event.kind {
                 if let Some(k) = event.as_key() {
-                    if kgfx_is_key_pressed(k, KgfxKey::Escape) {
+                    if kgfx_is_key_pressed(k, KgfxKeyCode::Escape) {
                         kgfx_window_set_should_close(window, true);
                     }
                 }

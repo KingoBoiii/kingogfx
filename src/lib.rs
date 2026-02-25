@@ -1,4 +1,4 @@
-use crate::window::{Input, Key, KeyEvent};
+use crate::window::{Input, KeyCode, KeyEvent};
 
 pub mod window;
 pub mod graphics;
@@ -12,23 +12,23 @@ pub extern "C" fn kgfx_shutdown() -> () {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kgfx_is_key_pressed(event: KeyEvent, key: Key) -> bool {
-    Input::is_key_released(event, key)
+pub extern "C" fn kgfx_is_key_pressed(event: KeyEvent, key_code: KeyCode) -> bool {
+    Input::is_key_released(event, key_code)
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kgfx_is_key_released(event: KeyEvent, key: Key) -> bool {
-    Input::is_key_released(event, key)
+pub extern "C" fn kgfx_is_key_released(event: KeyEvent, key_code: KeyCode) -> bool {
+    Input::is_key_released(event, key_code)
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kgfx_is_key_pressed_i32(event: KeyEvent, key: i32) -> bool {
-    matches!(Key::from_i32(key), Some(k) if Input::is_key_released(event, k))
+pub extern "C" fn kgfx_is_key_pressed_i32(event: KeyEvent, key_code: i32) -> bool {
+    matches!(KeyCode::from_i32(key_code), Some(k) if Input::is_key_released(event, k))
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kgfx_is_key_released_i32(event: KeyEvent, key: i32) -> bool {
-    matches!(Key::from_i32(key), Some(k) if Input::is_key_released(event, k))
+pub extern "C" fn kgfx_is_key_released_i32(event: KeyEvent, key_code: i32) -> bool {
+    matches!(KeyCode::from_i32(key_code), Some(k) if Input::is_key_released(event, k))
 }
 
 pub fn add(left: u64, right: u64) -> u64 {

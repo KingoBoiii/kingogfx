@@ -1,4 +1,4 @@
-use kingogfx::window::{Input, Key, Window, WindowEvent};
+use kingogfx::window::{Input, KeyCode, Window, WindowEvent};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut window = Window::builder()
@@ -17,10 +17,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 WindowEvent::Key(key_event) => {
                     println!(
                         "Key event -> key: {:?}, action: {:?}, mods: {:?}",
-                        key_event.key, key_event.action, key_event.modifiers
+                        key_event.key_code, key_event.action, key_event.modifiers
                     );
 
-                    if Input::is_key_pressed(key_event, Key::Escape) {
+                    if Input::is_key_pressed(key_event, KeyCode::Escape) {
                         window.set_should_close(true);
                     }
                 }
