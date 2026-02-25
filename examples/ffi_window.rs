@@ -33,7 +33,6 @@ fn main() {
                         k.key, k.action, k.modifiers
                     );
 
-                    // 256 = ESC
                     if kgfx_is_key_pressed(k, KgfxKey::Escape) {
                         kgfx_window_set_should_close(handle, true);
                     }
