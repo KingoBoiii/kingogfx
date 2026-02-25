@@ -4,8 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [lib]
-crate-type = ["rlib"]
-# crate-type = ["rlib","cdylib", "staticlib"] # disabling dll and staticlib for now...
+crate-type = ["rlib","cdylib", "staticlib"]
 
 [dependencies]
 glfw = "0.61.0"
