@@ -1,4 +1,4 @@
-use kingogfx::{window::{Key, KeyAction, Window, WindowEvent}};
+use kingogfx::window::{Input, Key, Window, WindowEvent};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut window = Window::builder()
@@ -20,8 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         key_event.key, key_event.action, key_event.modifiers
                     );
 
-                    // ESC (GLFW keycode 256) lukker vinduet ved key press
-                    if key_event.key == Key::Escape && key_event.action == KeyAction::Press {
+                    if Input::is_key_pressed(key_event, Key::Escape) {
                         window.set_should_close(true);
                     }
                 }

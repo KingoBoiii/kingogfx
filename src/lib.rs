@@ -1,4 +1,4 @@
-use crate::window::{Key, KeyAction, KeyEvent};
+use crate::window::{Input, Key, KeyEvent};
 
 pub mod window;
 pub mod graphics;
@@ -12,11 +12,11 @@ pub extern "C" fn kgfx_shutdown() -> () {
 }
 
 pub fn is_key_pressed(event: KeyEvent, key: Key) -> bool {
-    event.key == key && event.action == KeyAction::Press
+    Input::is_key_pressed(event, key)
 }
 
 pub fn is_key_released(event: KeyEvent, key: Key) -> bool {
-    event.key == key && event.action == KeyAction::Release
+    Input::is_key_released(event, key)
 }
 
 pub fn kgfx_is_key_pressed(event: KeyEvent, key: Key) -> bool {
