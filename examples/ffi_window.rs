@@ -26,7 +26,7 @@ fn main() {
 
     while !kgfx_window_should_close(handle) {
         while kgfx_window_poll_event(handle, &mut event) {
-            if let KgfxEventKind::KeyEvent = event.kind {
+            if let KgfxEventKind::Key = event.kind {
                 if let Some(k) = event.as_key() {
                     println!(
                         "Key event -> key: {:?}, action: {:?}, mods: {:?}",
