@@ -1,4 +1,4 @@
-use crate::window::{KgfxKey, KgfxKeyAction, KgfxKeyEvent};
+use crate::window::{Key, KeyAction, KeyEvent};
 
 pub mod window;
 pub mod graphics;
@@ -11,22 +11,30 @@ pub extern "C" fn kgfx_init() -> () {
 pub extern "C" fn kgfx_shutdown() -> () {
 }
 
-pub fn kgfx_is_key_pressed(event: KgfxKeyEvent, key: KgfxKey) -> bool {
-    event.key == key && event.action == KgfxKeyAction::Press
+pub fn is_key_pressed(event: KeyEvent, key: Key) -> bool {
+    event.key == key && event.action == KeyAction::Press
 }
 
-pub fn kgfx_is_key_released(event: KgfxKeyEvent, key: KgfxKey) -> bool {
-    event.key == key && event.action == KgfxKeyAction::Release
+pub fn is_key_released(event: KeyEvent, key: Key) -> bool {
+    event.key == key && event.action == KeyAction::Release
+}
+
+pub fn kgfx_is_key_pressed(event: KeyEvent, key: Key) -> bool {
+    is_key_pressed(event, key)
+}
+
+pub fn kgfx_is_key_released(event: KeyEvent, key: Key) -> bool {
+    is_key_released(event, key)
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kgfx_is_key_pressed_i32(event: KgfxKeyEvent, key: i32) -> bool {
-    matches!(KgfxKey::from_i32(key), Some(k) if kgfx_is_key_pressed(event, k))
+pub extern "C" fn kgfx_is_key_pressed_i32(event: KeyEvent, key: i32) -> bool {
+    matches!(Key::from_i32(key), Some(k) if is_key_pressed(event, k))
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kgfx_is_key_released_i32(event: KgfxKeyEvent, key: i32) -> bool {
-    matches!(KgfxKey::from_i32(key), Some(k) if kgfx_is_key_released(event, k))
+pub extern "C" fn kgfx_is_key_released_i32(event: KeyEvent, key: i32) -> bool {
+    matches!(Key::from_i32(key), Some(k) if is_key_released(event, k))
 }
 
 pub fn add(left: u64, right: u64) -> u64 {

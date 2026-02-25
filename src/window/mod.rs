@@ -113,7 +113,7 @@ impl Window {
 
 #[repr(i32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum KgfxKey {
+pub enum Key {
     Unknown = -1,
 
     Space = 32,
@@ -194,9 +194,9 @@ pub enum KgfxKey {
     Menu = 348,
 }
 
-impl KgfxKey {
+impl Key {
     pub const fn from_i32(value: i32) -> Option<Self> {
-        use KgfxKey::*;
+        use Key::*;
         Some(match value {
             -1 => Unknown,
 
@@ -236,9 +236,9 @@ impl KgfxKey {
 
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
-pub struct KgfxKeyModifiers(pub i32);
+pub struct KeyModifiers(pub i32);
 
-impl KgfxKeyModifiers {
+impl KeyModifiers {
     pub const NONE: Self      = Self(0);
     pub const SHIFT: Self     = Self(0x0001);
     pub const CONTROL: Self   = Self(0x0002);
@@ -260,11 +260,14 @@ impl KgfxKeyModifiers {
     }
 }
 
-// Hvis din event allerede findes, skift kun `key`-feltet:
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct KgfxKeyEvent {
-    pub key: KgfxKey,
-    pub action: KgfxKeyAction,
-    pub modifiers: KgfxKeyModifiers,
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct KeyEvent {
+    pub key: Key,
+    pub action: KeyAction,
+    pub modifiers: KeyModifiers,
 }
+
+pub type KgfxKey = Key;
+pub type KgfxKeyModifiers = KeyModifiers;
+pub type KgfxKeyEvent = KeyEvent;

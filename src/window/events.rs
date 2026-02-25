@@ -1,20 +1,19 @@
-use crate::window::{KgfxKey, KgfxKeyEvent, KgfxKeyModifiers};
+use crate::window::KeyEvent;
 
 extern crate glfw;
 
+#[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum KeyAction {
-    Release,
-    Press,
-    Repeat,
+    Release = 0,
+    Press = 1,
+    Repeat = 2,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct KeyEvent {
-    pub key: i32,
-    pub scancode: i32,
-    pub action: KeyAction,
-    pub mods: i32,
+impl Default for KeyAction {
+    fn default() -> Self {
+        Self::Release
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -40,29 +39,7 @@ impl Default for KgfxEventKind {
     }
 }
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum KgfxKeyAction {
-    Release = 0,
-    Press = 1,
-    Repeat = 2,
-}
-
-impl Default for KgfxKeyAction {
-    fn default() -> Self {
-        Self::Release
-    }
-}
-
-impl From<KeyAction> for KgfxKeyAction {
-    fn from(a: KeyAction) -> Self {
-        match a {
-            KeyAction::Release => Self::Release,
-            KeyAction::Press => Self::Press,
-            KeyAction::Repeat => Self::Repeat,
-        }
-    }
-}
+pub type KgfxKeyAction = KeyAction;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default)]
@@ -76,7 +53,7 @@ pub struct KgfxEventRaw {
 #[derive(Copy, Clone)]
 pub union KgfxEventData {
     pub raw: KgfxEventRaw,
-    pub key: KgfxKeyEvent,
+    pub key: KeyEvent,
 }
 
 #[repr(C)]
@@ -97,16 +74,6 @@ impl Default for KgfxEvent {
     }
 }
 
-impl From<KeyEvent> for KgfxKeyEvent {
-    fn from(k: KeyEvent) -> Self {
-        Self {
-            key: KgfxKey::from_i32(k.key).unwrap_or(KgfxKey::Unknown),
-            action: k.action.into(),
-            modifiers: KgfxKeyModifiers::from_i32(k.mods),
-        }
-    }
-}
-
 impl From<WindowEvent> for KgfxEvent {
     fn from(value: WindowEvent) -> Self {
         match value {
@@ -118,7 +85,7 @@ impl From<WindowEvent> for KgfxEvent {
             },
             WindowEvent::Key(k) => Self {
                 kind: KgfxEventKind::Key,
-                data: KgfxEventData { key: k.into() },
+                data: KgfxEventData { key: k },
             },
             WindowEvent::Unknown => Self::default(),
         }
@@ -126,7 +93,7 @@ impl From<WindowEvent> for KgfxEvent {
 }
 
 impl KgfxEvent {
-    pub fn as_key(&self) -> Option<KgfxKeyEvent> {
+    pub fn as_key(&self) -> Option<KeyEvent> {
         if self.kind == KgfxEventKind::Key {
             Some(unsafe { self.data.key })
         } else {

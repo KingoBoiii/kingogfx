@@ -1,6 +1,7 @@
 use std::ffi::CString;
 
 use kingogfx::kgfx_is_key_pressed;
+use kingogfx::window::KgfxKey;
 use kingogfx::window::ffi::kgfx_window_focus;
 use kingogfx::window::{
     ffi::{
@@ -28,12 +29,12 @@ fn main() {
             if let KgfxEventKind::Key = event.kind {
                 if let Some(k) = event.as_key() {
                     println!(
-                        "Key event -> key: {}, action: {:?}, mods: {}",
-                        k.key.to_i32(), k.action, k.modifiers.bits()
+                        "Key event -> key: {:?}, action: {:?}, mods: {:?}",
+                        k.key, k.action, k.modifiers
                     );
 
                     // 256 = ESC
-                    if kgfx_is_key_pressed(k, kingogfx::window::KgfxKey::Escape) {
+                    if kgfx_is_key_pressed(k, KgfxKey::Escape) {
                         kgfx_window_set_should_close(handle, true);
                     }
                 }

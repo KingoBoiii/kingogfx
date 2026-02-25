@@ -6,7 +6,7 @@ use std::ffi::c_void;
 use glfw::Context;
 
 use crate::window::backend::WindowBackend;
-use crate::window::{KeyAction, KeyEvent, WindowError, WindowEvent};
+use crate::window::{Key, KeyAction, KeyEvent, KeyModifiers, WindowError, WindowEvent};
 
 pub(crate) struct WindowHandle {
     pub(crate) glfw: glfw::Glfw,
@@ -77,11 +77,10 @@ fn map_key_action(a: glfw::Action) -> KeyAction {
 fn map_event(ev: glfw::WindowEvent) -> WindowEvent {
     match ev {
         glfw::WindowEvent::Close => WindowEvent::Close,
-        glfw::WindowEvent::Key(key, scancode, action, mods) => WindowEvent::Key(KeyEvent {
-            key: key as i32,
-            scancode,
+        glfw::WindowEvent::Key(key, _scancode, action, mods) => WindowEvent::Key(KeyEvent {
+            key: Key::from_i32(key as i32).unwrap_or(Key::Unknown),
             action: map_key_action(action),
-            mods: mods.bits() as i32,
+            modifiers: KeyModifiers::from_i32(mods.bits() as i32),
         }),
         _ => WindowEvent::Unknown,
     }
