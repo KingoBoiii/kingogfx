@@ -1,7 +1,8 @@
-use crate::{graphics::{backend::GraphicsBackend, error::GraphicsError, shader::{Shader, ShaderBackend}, vertex_buffer::{VertexBuffer, VertexBufferBackend}}, window::Window};
+use crate::{graphics::{backend::GraphicsBackend, error::GraphicsError, pipeline::{Pipeline, PipelineBackend}, shader::{Shader, ShaderBackend}, vertex_buffer::{VertexBuffer, VertexBufferBackend}}, window::Window};
 
 pub mod error;
 pub mod shader;
+pub mod pipeline;
 pub mod vertex_buffer;
 pub(crate) mod backend;
 pub(crate) mod backends;
@@ -22,7 +23,7 @@ impl Graphics {
 	pub fn create(window: &mut Window, api: GraphicsApi) -> Result<Self, GraphicsError> {
 		let backend: Box<dyn GraphicsBackend> = match api {
 			GraphicsApi::OpenGL => {
-				Box::new(backends::opengl::backend::OpenGLGraphicsBackend::create(window)
+				Box::new(backends::opengl::opengl_backend::OpenGLGraphicsBackend::create(window)
 					.map_err(GraphicsError::from)?)
 			}
 			GraphicsApi::Vulkan => {
@@ -45,7 +46,7 @@ impl Graphics {
 	pub fn create_shader(&self, vertex_source: &str, fragment_source: &str) -> Result<Shader, GraphicsError> {
 		let backend: Box<dyn ShaderBackend> = match self.api {
 			GraphicsApi::OpenGL => {
-				Box::new(backends::opengl::shader::OpenGLShader::from_source(vertex_source, fragment_source)
+				Box::new(backends::opengl::opengl_shader::OpenGLShader::from_source(vertex_source, fragment_source)
 					.map_err(GraphicsError::from)?)
 			}
 			GraphicsApi::Vulkan => {
@@ -62,10 +63,30 @@ impl Graphics {
 		Ok(Shader::create(backend))
 	}
 
+	pub fn create_pipeline(&self) -> Result<Pipeline, GraphicsError> {
+		let backend: Box<dyn PipelineBackend> = match self.api {
+			GraphicsApi::OpenGL => {
+				Box::new(backends::opengl::opengl_pipeline::OpenGLPipeline::new()
+					.map_err(GraphicsError::from)?)
+			}
+			GraphicsApi::Vulkan => {
+				// Tilføj din Vulkan backend her
+				unimplemented!("Vulkan backend not yet implemented")
+			}
+			GraphicsApi::DirectX => {
+				// Tilføj din DirectX backend her
+				unimplemented!("DirectX backend not yet implemented")
+			}
+			// osv.
+		};
+
+		Ok(Pipeline::create(backend))
+	}
+
 	pub fn create_vertex_buffer(&self, data: &[f32]) -> Result<VertexBuffer, GraphicsError> {
 		let backend: Box<dyn VertexBufferBackend> = match self.api {
 			GraphicsApi::OpenGL => {
-				Box::new(backends::opengl::vertex_buffer::OpenGLVertexBuffer::new(data)
+				Box::new(backends::opengl::opengl_vertex_buffer::OpenGLVertexBuffer::new(data)
 					.map_err(GraphicsError::from)?)
 			}
 			GraphicsApi::Vulkan => {

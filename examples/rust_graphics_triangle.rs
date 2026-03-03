@@ -36,6 +36,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let vertex_buffer = graphics.create_vertex_buffer(&vertices)
 		.expect("Failed to create vertex buffer");
 
+	let pipeline = graphics.create_pipeline()
+		.expect("Failed to create pipeline");
+
 	while !window.should_close() {
 		for event in window.poll_events() {
 			match event {
@@ -57,6 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		graphics.clear();
 		
 		shader.bind();
+		pipeline.bind();
 		vertex_buffer.bind();
 		graphics.draw_arrays(3);
 
