@@ -3,7 +3,7 @@ use kingogfx::graphics::{Graphics};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut window = Window::builder()
-        .title("KingoGFX - Window Example (Rust)")
+        .title("KingoGFX - Graphics Triangle Example (Rust)")
         .size(1280, 720)
         .build()?;
 
