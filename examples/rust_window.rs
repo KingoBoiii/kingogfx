@@ -11,9 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     while !window.should_close() {
         for event in window.poll_events() {
             match event {
-                WindowEvent::Close => {
-                    window.set_should_close(true);
-                }
+                WindowEvent::Close => {}
                 WindowEvent::Key(key_event) => {
                     println!(
                         "Key event -> key: {:?}, action: {:?}, mods: {:?}",
