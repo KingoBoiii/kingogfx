@@ -1,5 +1,6 @@
 use kingogfx::window::{Input, KeyCode, Window, WindowEvent};
 use kingogfx::graphics::{Graphics, GraphicsApi};
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let mut window = Window::builder()
 		.title("KingoGFX - Graphics Triangle Example (Rust)")
