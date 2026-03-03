@@ -4,6 +4,7 @@ pub mod error;
 pub mod shader;
 pub mod pipeline;
 pub mod vertex_buffer;
+pub mod ffi;
 pub(crate) mod backend;
 pub(crate) mod backends;
 
