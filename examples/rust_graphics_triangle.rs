@@ -1,8 +1,17 @@
-use kingogfx::graphics::shader::Shader;
 use kingogfx::window::{Input, KeyCode, Window, WindowEvent};
 use kingogfx::graphics::{Graphics, GraphicsApi};
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+	let mut window = Window::builder()
+		.title("KingoGFX - Graphics Triangle Example (Rust)")
+		.size(1280, 720)
+		.build()?;
 
-fn create_shader(gfx: &Graphics) -> Shader {
+	window.focus();
+
+	let graphics = Graphics::create(&mut window, GraphicsApi::OpenGL)?;
+	graphics.viewport(0, 0, 1280, 720);
+	graphics.clear_color(0.2, 0.3, 0.3, 1.0);
+
 	let vs_src = r#"
 		#version 330 core
 		layout (location = 0) in vec2 aPos;
@@ -19,23 +28,13 @@ fn create_shader(gfx: &Graphics) -> Shader {
 		}
 	"#;
 
-	gfx.create_shader(vs_src, fs_src)
-		.expect("Failed to create shader")
-}
+	let shader = graphics.create_shader(vs_src, fs_src)
+		.expect("Failed to create shader");
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-	let mut window = Window::builder()
-		.title("KingoGFX - Graphics Triangle Example (Rust)")
-		.size(1280, 720)
-		.build()?;
+	let vertices: [f32; 6] = [-0.5, -0.5, 0.5, -0.5, 0.0, 0.5];
 
-	window.focus();
-
-	let graphics = Graphics::create(&mut window, GraphicsApi::OpenGL)?;
-	graphics.viewport(0, 0, 1280, 720);
-	graphics.clear_color(0.2, 0.3, 0.3, 1.0);
-
-	let shader = create_shader(&graphics);
+	let vertex_buffer = graphics.create_vertex_buffer(&vertices)
+		.expect("Failed to create vertex buffer");
 
 	while !window.should_close() {
 		for event in window.poll_events() {
@@ -56,6 +55,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		}
 
 		graphics.clear();
+		
+		shader.bind();
+		vertex_buffer.bind();
+		graphics.draw_arrays(3);
 
 		// Her ville du normalt render'e
 		window.swap_buffers();

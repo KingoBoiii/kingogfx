@@ -16,21 +16,27 @@ impl OpenGLGraphicsBackend {
 }
 
 impl GraphicsBackend for OpenGLGraphicsBackend {
-		fn clear(&self) {
-			unsafe {
-				gl::Clear(gl::COLOR_BUFFER_BIT);
-			}
+	fn clear(&self) {
+		unsafe {
+			gl::Clear(gl::COLOR_BUFFER_BIT);
 		}
+	}
 
-		fn clear_color(&self, red: f32, green: f32, blue: f32, alpha: f32) {
-			unsafe {
-				gl::ClearColor(red, green, blue, alpha);
-			}
+	fn clear_color(&self, red: f32, green: f32, blue: f32, alpha: f32) {
+		unsafe {
+			gl::ClearColor(red, green, blue, alpha);
 		}
+	}
 
-		fn viewport(&self, x: i32, y: i32, width: i32, height: i32) {
-			unsafe {
-				gl::Viewport(x, y, width, height);
-			}
+	fn viewport(&self, x: i32, y: i32, width: i32, height: i32) {
+		unsafe {
+			gl::Viewport(x, y, width, height);
 		}
+	}
+
+	fn draw_arrays(&self, count: i32) {
+		unsafe {
+			gl::DrawArrays(gl::TRIANGLES, 0, count);
+		}
+	}
 }

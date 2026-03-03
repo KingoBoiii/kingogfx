@@ -1,7 +1,8 @@
-use crate::{graphics::{backend::GraphicsBackend, error::GraphicsError, shader::{Shader, ShaderBackend}}, window::Window};
+use crate::{graphics::{backend::GraphicsBackend, error::GraphicsError, shader::{Shader, ShaderBackend}, vertex_buffer::{VertexBuffer, VertexBufferBackend}}, window::Window};
 
 pub mod error;
 pub mod shader;
+pub mod vertex_buffer;
 pub(crate) mod backend;
 pub(crate) mod backends;
 
@@ -61,6 +62,26 @@ impl Graphics {
 		Ok(Shader::create(backend))
 	}
 
+	pub fn create_vertex_buffer(&self, data: &[f32]) -> Result<VertexBuffer, GraphicsError> {
+		let backend: Box<dyn VertexBufferBackend> = match self.api {
+			GraphicsApi::OpenGL => {
+				Box::new(backends::opengl::vertex_buffer::OpenGLVertexBuffer::new(data)
+					.map_err(GraphicsError::from)?)
+			}
+			GraphicsApi::Vulkan => {
+				// Tilføj din Vulkan backend her
+				unimplemented!("Vulkan backend not yet implemented")
+			}
+			GraphicsApi::DirectX => {
+				// Tilføj din DirectX backend her
+				unimplemented!("DirectX backend not yet implemented")
+			}
+			// osv.
+		};
+		
+		Ok(VertexBuffer::create(backend))
+	}
+
 	pub fn clear(&self) {
 		self.backend.clear();
 	}
@@ -71,5 +92,9 @@ impl Graphics {
 
 	pub fn viewport(&self, x: i32, y: i32, width: i32, height: i32) {
 		self.backend.viewport(x, y, width, height);
+	}
+
+	pub fn draw_arrays(&self, count: i32) {
+		self.backend.draw_arrays(count);
 	}
 }
