@@ -10,6 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     window.focus();
 
     let graphics = Graphics::create(&mut window)?;
+    graphics.viewport(0, 0, 1280, 720);
     graphics.clear_color(0.2, 0.3, 0.3, 1.0);
 
     while !window.should_close() {

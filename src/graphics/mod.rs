@@ -1,7 +1,6 @@
 use crate::{graphics::{backend::GraphicsBackend, backends::opengl::OpenGLGraphicsBackend, error::GraphicsError}, window::Window};
 
 pub mod error;
-
 pub(crate) mod backend;
 pub(crate) mod backends;
 
@@ -24,5 +23,9 @@ impl Graphics {
 
     pub fn clear_color(&self, red: f32, green: f32, blue: f32, alpha: f32) {
         self.backend.clear_color(red, green, blue, alpha);
+    }
+
+    pub fn viewport(&self, x: i32, y: i32, width: i32, height: i32) {
+        self.backend.viewport(x, y, width, height);
     }
 }

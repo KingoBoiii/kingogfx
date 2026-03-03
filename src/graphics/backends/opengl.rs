@@ -27,4 +27,10 @@ impl GraphicsBackend for OpenGLGraphicsBackend {
 				gl::ClearColor(red, green, blue, alpha);
 			}
 		}
+
+		fn viewport(&self, x: i32, y: i32, width: i32, height: i32) {
+			unsafe {
+				gl::Viewport(x, y, width, height);
+			}
+		}
 }
