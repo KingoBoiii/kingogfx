@@ -1,31 +1,75 @@
-use crate::{graphics::{backend::GraphicsBackend, backends::opengl::OpenGLGraphicsBackend, error::GraphicsError}, window::Window};
+use crate::{graphics::{backend::GraphicsBackend, error::GraphicsError, shader::{Shader, ShaderBackend}}, window::Window};
 
 pub mod error;
+pub mod shader;
 pub(crate) mod backend;
 pub(crate) mod backends;
 
+pub enum GraphicsApi {
+    OpenGL,
+    Vulkan,
+    DirectX,
+    // osv.
+}
+
 pub struct Graphics {
-    backend: Box<dyn GraphicsBackend>,
+	api: GraphicsApi,
+	backend: Box<dyn GraphicsBackend>,
 }
 
 impl Graphics {
-    pub fn create(window: &mut Window) -> Result<Self, GraphicsError> {
-        let backend = OpenGLGraphicsBackend::create(window)
-            .map_err(GraphicsError::from)?;
-        Ok(Graphics {
-            backend: Box::new(backend),
-        })
-    }
+	pub fn create(window: &mut Window, api: GraphicsApi) -> Result<Self, GraphicsError> {
+		let backend: Box<dyn GraphicsBackend> = match api {
+			GraphicsApi::OpenGL => {
+				Box::new(backends::opengl::backend::OpenGLGraphicsBackend::create(window)
+					.map_err(GraphicsError::from)?)
+			}
+			GraphicsApi::Vulkan => {
+				// Tilføj din Vulkan backend her
+				unimplemented!("Vulkan backend not yet implemented")
+			}
+			GraphicsApi::DirectX => {
+				// Tilføj din DirectX backend her
+				unimplemented!("DirectX backend not yet implemented")
+			}
+			// osv.
+		};
 
-    pub fn clear(&self) {
-        self.backend.clear();
-    }
+		Ok(Graphics {
+			api,
+			backend,
+		})
+	}
 
-    pub fn clear_color(&self, red: f32, green: f32, blue: f32, alpha: f32) {
-        self.backend.clear_color(red, green, blue, alpha);
-    }
+	pub fn create_shader(&self, vertex_source: &str, fragment_source: &str) -> Result<Shader, GraphicsError> {
+		let backend: Box<dyn ShaderBackend> = match self.api {
+			GraphicsApi::OpenGL => {
+				Box::new(backends::opengl::shader::OpenGLShader::from_source(vertex_source, fragment_source)
+					.map_err(GraphicsError::from)?)
+			}
+			GraphicsApi::Vulkan => {
+				// Tilføj din Vulkan backend her
+				unimplemented!("Vulkan backend not yet implemented")
+			}
+			GraphicsApi::DirectX => {
+				// Tilføj din DirectX backend her
+				unimplemented!("DirectX backend not yet implemented")
+			}
+			// osv.
+		};
 
-    pub fn viewport(&self, x: i32, y: i32, width: i32, height: i32) {
-        self.backend.viewport(x, y, width, height);
-    }
+		Ok(Shader::create(backend))
+	}
+
+	pub fn clear(&self) {
+		self.backend.clear();
+	}
+
+	pub fn clear_color(&self, red: f32, green: f32, blue: f32, alpha: f32) {
+		self.backend.clear_color(red, green, blue, alpha);
+	}
+
+	pub fn viewport(&self, x: i32, y: i32, width: i32, height: i32) {
+		self.backend.viewport(x, y, width, height);
+	}
 }
