@@ -2,6 +2,7 @@ use crate::window::{Input, KeyCode, KeyEvent};
 
 pub mod window;
 pub mod graphics;
+pub mod gl;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn kgfx_init() -> () {
