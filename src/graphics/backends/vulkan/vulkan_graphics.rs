@@ -1,5 +1,4 @@
 use std::{
-    cell::RefCell,
     ffi::CString,
     os::raw::c_char,
     sync::Arc,
@@ -17,12 +16,6 @@ use crate::window::Window;
 use super::VulkanShader;
 
 pub(crate) struct VulkanGraphics {
-    state: RefCell<VulkanState>,
-}
-
-struct VulkanState {
-    #[allow(dead_code)]
-    entry: Entry,
     instance: ash::Instance,
     surface_loader: ash::khr::surface::Instance,
     surface: vk::SurfaceKHR,
@@ -167,42 +160,38 @@ impl VulkanGraphics {
         };
 
         Ok(Self {
-            state: RefCell::new(VulkanState {
-                entry,
-                instance,
-                surface_loader,
-                surface,
-                physical_device,
-                device,
-                queue_family_index,
-                queue,
-                swapchain_loader,
-                swapchain,
-                swapchain_images,
-                swapchain_image_views,
-                swapchain_format,
-                swapchain_extent,
-                render_pass,
-                framebuffers,
-                command_pool,
-                command_buffers,
-                image_available,
-                render_finished,
-                in_flight,
-                in_frame: false,
-                current_image_index: 0,
-                current_cmd: vk::CommandBuffer::null(),
-                viewport: None,
-                scissor: None,
-                swapchain_dirty: false,
-                surface_lost: false,
-            }),
+            instance,
+            surface_loader,
+            surface,
+            physical_device,
+            device,
+            queue_family_index,
+            queue,
+            swapchain_loader,
+            swapchain,
+            swapchain_images,
+            swapchain_image_views,
+            swapchain_format,
+            swapchain_extent,
+            render_pass,
+            framebuffers,
+            command_pool,
+            command_buffers,
+            image_available,
+            render_finished,
+            in_flight,
+            in_frame: false,
+            current_image_index: 0,
+            current_cmd: vk::CommandBuffer::null(),
+            viewport: None,
+            scissor: None,
+            swapchain_dirty: false,
+            surface_lost: false,
         })
     }
 
     pub(crate) fn set_viewport(&mut self, x: i32, y: i32, width: i32, height: i32) {
-        let mut state = self.state.borrow_mut();
-        state.viewport = Some(vk::Viewport {
+        self.viewport = Some(vk::Viewport {
             x: x as f32,
             y: y as f32,
             width: width.max(0) as f32,
@@ -210,7 +199,7 @@ impl VulkanGraphics {
             min_depth: 0.0,
             max_depth: 1.0,
         });
-        state.scissor = Some(vk::Rect2D {
+        self.scissor = Some(vk::Rect2D {
             offset: vk::Offset2D { x, y },
             extent: vk::Extent2D {
                 width: width.max(0) as u32,
@@ -220,9 +209,7 @@ impl VulkanGraphics {
     }
 
     fn recreate_swapchain(&mut self, window: &mut Window, recreate_surface: bool) -> Result<(), String> {
-        let mut state = self.state.borrow_mut();
-
-        let old_format = state.swapchain_format;
+        let old_format = self.swapchain_format;
 
         // If minimized, don't try to recreate. Let caller retry later.
         let (fb_w, fb_h) = window.framebuffer_size();
@@ -232,94 +219,93 @@ impl VulkanGraphics {
 
         unsafe {
             // Best-effort wait for the previous frame.
-            let _ = state.device.wait_for_fences(&[state.in_flight], true, 2_000_000_000);
+            let _ = self.device.wait_for_fences(&[self.in_flight], true, 2_000_000_000);
         }
 
         unsafe {
-            for fb in &state.framebuffers {
-                state.device.destroy_framebuffer(*fb, None);
+            for fb in &self.framebuffers {
+                self.device.destroy_framebuffer(*fb, None);
             }
-            state.framebuffers.clear();
+            self.framebuffers.clear();
 
-            for view in &state.swapchain_image_views {
-                state.device.destroy_image_view(*view, None);
+            for view in &self.swapchain_image_views {
+                self.device.destroy_image_view(*view, None);
             }
-            state.swapchain_image_views.clear();
+            self.swapchain_image_views.clear();
 
-            if !state.command_buffers.is_empty() {
-                state.device.free_command_buffers(state.command_pool, &state.command_buffers);
-                state.command_buffers.clear();
+            if !self.command_buffers.is_empty() {
+                self.device.free_command_buffers(self.command_pool, &self.command_buffers);
+                self.command_buffers.clear();
             }
 
-            if state.swapchain != vk::SwapchainKHR::null() {
-                state.swapchain_loader.destroy_swapchain(state.swapchain, None);
-                state.swapchain = vk::SwapchainKHR::null();
+            if self.swapchain != vk::SwapchainKHR::null() {
+                self.swapchain_loader.destroy_swapchain(self.swapchain, None);
+                self.swapchain = vk::SwapchainKHR::null();
             }
 
             if recreate_surface {
-                if state.surface != vk::SurfaceKHR::null() {
-                    state.surface_loader.destroy_surface(state.surface, None);
-                    state.surface = vk::SurfaceKHR::null();
+                if self.surface != vk::SurfaceKHR::null() {
+                    self.surface_loader.destroy_surface(self.surface, None);
+                    self.surface = vk::SurfaceKHR::null();
                 }
-                state.surface = create_surface(&state.instance, window)?;
+                self.surface = create_surface(&self.instance, window)?;
             }
         }
 
         let (swapchain, images, format, extent) = create_swapchain(
-            state.physical_device,
-            &state.device,
-            &state.surface_loader,
-            state.surface,
-            &state.swapchain_loader,
+            self.physical_device,
+            &self.device,
+            &self.surface_loader,
+            self.surface,
+            &self.swapchain_loader,
             window,
-            state.queue_family_index,
+            self.queue_family_index,
         )?;
 
-        state.swapchain = swapchain;
-        state.swapchain_images = images;
-        state.swapchain_format = format;
-        state.swapchain_extent = extent;
+        self.swapchain = swapchain;
+        self.swapchain_images = images;
+        self.swapchain_format = format;
+        self.swapchain_extent = extent;
 
-        state.swapchain_image_views = create_image_views(&state.device, &state.swapchain_images, state.swapchain_format)?;
+        self.swapchain_image_views = create_image_views(&self.device, &self.swapchain_images, self.swapchain_format)?;
 
         // Only recreate the render pass if the swapchain format changed.
         // Keeping the render pass stable allows pipelines created once at startup
         // to remain valid across resizes.
-        if state.render_pass == vk::RenderPass::null() || state.swapchain_format != old_format {
+        if self.render_pass == vk::RenderPass::null() || self.swapchain_format != old_format {
             unsafe {
-                if state.render_pass != vk::RenderPass::null() {
-                    state.device.destroy_render_pass(state.render_pass, None);
+                if self.render_pass != vk::RenderPass::null() {
+                    self.device.destroy_render_pass(self.render_pass, None);
                 }
             }
-            state.render_pass = create_render_pass(&state.device, state.swapchain_format)?;
+            self.render_pass = create_render_pass(&self.device, self.swapchain_format)?;
         }
 
-        state.framebuffers = create_framebuffers(
-            &state.device,
-            state.render_pass,
-            &state.swapchain_image_views,
-            state.swapchain_extent,
+        self.framebuffers = create_framebuffers(
+            &self.device,
+            self.render_pass,
+            &self.swapchain_image_views,
+            self.swapchain_extent,
         )?;
 
         let alloc_info = vk::CommandBufferAllocateInfo::default()
-            .command_pool(state.command_pool)
+            .command_pool(self.command_pool)
             .level(vk::CommandBufferLevel::PRIMARY)
-            .command_buffer_count(state.swapchain_images.len() as u32);
+            .command_buffer_count(self.swapchain_images.len() as u32);
 
-        state.command_buffers = unsafe {
-            state
-                .device
+        self.command_buffers = unsafe {
+            self.device
                 .allocate_command_buffers(&alloc_info)
                 .map_err(|e| format!("vkAllocateCommandBuffers failed: {e:?}"))?
         };
 
-        state.viewport = None;
-        state.scissor = None;
-        state.swapchain_dirty = false;
-        state.surface_lost = false;
-        state.in_frame = false;
-        state.current_cmd = vk::CommandBuffer::null();
-        state.current_image_index = 0;
+        self.viewport = None;
+        self.scissor = None;
+        self.swapchain_dirty = false;
+        self.surface_lost = false;
+        self.in_frame = false;
+        self.current_cmd = vk::CommandBuffer::null();
+        self.current_image_index = 0;
         Ok(())
     }
 
@@ -329,10 +315,9 @@ impl VulkanGraphics {
             return Err("Framebuffer size is 0 (minimized)".to_string());
         }
 
-        let (dirty, surface_lost, extent) = {
-            let state = self.state.borrow();
-            (state.swapchain_dirty, state.surface_lost, state.swapchain_extent)
-        };
+        let dirty = self.swapchain_dirty;
+        let surface_lost = self.surface_lost;
+        let extent = self.swapchain_extent;
 
         if dirty || extent.width != fb_w as u32 || extent.height != fb_h as u32 {
             self.recreate_swapchain(window, surface_lost)?;
@@ -342,20 +327,18 @@ impl VulkanGraphics {
     }
 
     pub(crate) fn create_buffer_init(&mut self, data: &[f32], usage: BufferUsage) -> Result<VulkanBuffer, String> {
-        let state = self.state.borrow();
         vulkan_buffer::create_buffer_init(
-            &state.instance,
-            state.physical_device,
-            &state.device,
+            &self.instance,
+            self.physical_device,
+            &self.device,
             data,
             usage,
         )
     }
 
     pub(crate) fn create_shader(&mut self, desc: ShaderDescriptor<'_>) -> Result<Arc<VulkanShader>, String> {
-        let state = self.state.borrow();
         let shader = VulkanShader::from_glsl_sources(
-            &state.device,
+            &self.device,
             desc.vertex_source_glsl,
             desc.fragment_source_glsl,
         )?;
@@ -363,57 +346,42 @@ impl VulkanGraphics {
     }
 
     pub(crate) fn create_pipeline(&mut self, shader: &Arc<VulkanShader>) -> Result<VulkanPipeline, String> {
-        let state = self.state.borrow();
-        vulkan_pipeline::create_pipeline(&state.device, state.render_pass, shader)
+        vulkan_pipeline::create_pipeline(&self.device, self.render_pass, shader)
     }
 
     pub(crate) fn begin_frame(&mut self, _window: &mut Window, clear: ClearColor) -> Result<(), String> {
-        {
-            let state = self.state.borrow();
-            if state.in_frame {
-                return Err("begin_frame called while already in a frame".to_string());
-            }
+        if self.in_frame {
+            return Err("begin_frame called while already in a frame".to_string());
         }
 
         // Handle resize/suboptimal/out-of-date before acquire.
         self.recreate_swapchain_if_needed(_window)?;
 
         // Wait for the previous frame to complete.
-        {
-            let state = self.state.borrow();
-            unsafe {
-                state
-                    .device
-                    .wait_for_fences(&[state.in_flight], true, 5_000_000_000)
-                    .map_err(|e| {
-                        if e == vk::Result::TIMEOUT {
-                            "vkWaitForFences timed out (GPU may be hung)".to_string()
-                        } else {
-                            format!("vkWaitForFences failed: {e:?}")
-                        }
-                    })?;
-            }
+        unsafe {
+            self.device
+                .wait_for_fences(&[self.in_flight], true, 5_000_000_000)
+                .map_err(|e| {
+                    if e == vk::Result::TIMEOUT {
+                        "vkWaitForFences timed out (GPU may be hung)".to_string()
+                    } else {
+                        format!("vkWaitForFences failed: {e:?}")
+                    }
+                })?;
         }
 
         // Acquire next image with at most one swapchain recreation retry.
         let mut attempts_left = 2;
         let (image_index, suboptimal) = loop {
-            let acquire_result = {
-                let state = self.state.borrow();
-                unsafe {
-                    state
-                        .swapchain_loader
-                        .acquire_next_image(state.swapchain, u64::MAX, state.image_available, vk::Fence::null())
-                }
+            let acquire_result = unsafe {
+                self.swapchain_loader
+                    .acquire_next_image(self.swapchain, u64::MAX, self.image_available, vk::Fence::null())
             };
 
             match acquire_result {
                 Ok(v) => break v,
                 Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
-                    {
-                        let mut state = self.state.borrow_mut();
-                        state.swapchain_dirty = true;
-                    }
+                    self.swapchain_dirty = true;
                     attempts_left -= 1;
                     if attempts_left == 0 {
                         return Err("vkAcquireNextImageKHR out-of-date".to_string());
@@ -421,11 +389,8 @@ impl VulkanGraphics {
                     self.recreate_swapchain_if_needed(_window)?;
                 }
                 Err(vk::Result::ERROR_SURFACE_LOST_KHR) => {
-                    {
-                        let mut state = self.state.borrow_mut();
-                        state.swapchain_dirty = true;
-                        state.surface_lost = true;
-                    }
+                    self.swapchain_dirty = true;
+                    self.surface_lost = true;
                     attempts_left -= 1;
                     if attempts_left == 0 {
                         return Err("vkAcquireNextImageKHR surface lost".to_string());
@@ -437,23 +402,19 @@ impl VulkanGraphics {
         };
 
         if suboptimal {
-            let mut state = self.state.borrow_mut();
-            state.swapchain_dirty = true;
+            self.swapchain_dirty = true;
         }
 
-        let mut state = self.state.borrow_mut();
-        if state.in_frame {
+        if self.in_frame {
             return Err("begin_frame called while already in a frame".to_string());
         }
 
-        let cmd = state.command_buffers[image_index as usize];
+        let cmd = self.command_buffers[image_index as usize];
         unsafe {
-            state
-                .device
+            self.device
                 .reset_command_buffer(cmd, vk::CommandBufferResetFlags::empty())
                 .map_err(|e| format!("vkResetCommandBuffer failed: {e:?}"))?;
-            state
-                .device
+            self.device
                 .begin_command_buffer(cmd, &vk::CommandBufferBeginInfo::default())
                 .map_err(|e| format!("vkBeginCommandBuffer failed: {e:?}"))?;
         }
@@ -466,116 +427,108 @@ impl VulkanGraphics {
 
         let render_area = vk::Rect2D {
             offset: vk::Offset2D { x: 0, y: 0 },
-            extent: state.swapchain_extent,
+            extent: self.swapchain_extent,
         };
 
         let begin_rp = vk::RenderPassBeginInfo::default()
-            .render_pass(state.render_pass)
-            .framebuffer(state.framebuffers[image_index as usize])
+            .render_pass(self.render_pass)
+            .framebuffer(self.framebuffers[image_index as usize])
             .render_area(render_area)
             .clear_values(std::slice::from_ref(&clear_value));
 
         unsafe {
-            state.device.cmd_begin_render_pass(cmd, &begin_rp, vk::SubpassContents::INLINE);
+            self.device.cmd_begin_render_pass(cmd, &begin_rp, vk::SubpassContents::INLINE);
 
-            let viewport = state.viewport.unwrap_or(vk::Viewport {
+            let viewport = self.viewport.unwrap_or(vk::Viewport {
                 x: 0.0,
                 y: 0.0,
-                width: state.swapchain_extent.width as f32,
-                height: state.swapchain_extent.height as f32,
+                width: self.swapchain_extent.width as f32,
+                height: self.swapchain_extent.height as f32,
                 min_depth: 0.0,
                 max_depth: 1.0,
             });
-            let scissor = state.scissor.unwrap_or(vk::Rect2D {
+            let scissor = self.scissor.unwrap_or(vk::Rect2D {
                 offset: vk::Offset2D { x: 0, y: 0 },
-                extent: state.swapchain_extent,
+                extent: self.swapchain_extent,
             });
 
-            state.device.cmd_set_viewport(cmd, 0, std::slice::from_ref(&viewport));
-            state.device.cmd_set_scissor(cmd, 0, std::slice::from_ref(&scissor));
+            self.device.cmd_set_viewport(cmd, 0, std::slice::from_ref(&viewport));
+            self.device.cmd_set_scissor(cmd, 0, std::slice::from_ref(&scissor));
         }
 
-        state.in_frame = true;
-        state.current_image_index = image_index;
-        state.current_cmd = cmd;
+        self.in_frame = true;
+        self.current_image_index = image_index;
+        self.current_cmd = cmd;
         Ok(())
     }
 
     pub(crate) fn set_pipeline(&mut self, pipeline: &VulkanPipeline) -> Result<(), String> {
-        let state = self.state.borrow();
-        if !state.in_frame {
+        if !self.in_frame {
             return Err("set_pipeline must be called between begin_frame/end_frame".to_string());
         }
         unsafe {
-            state
-                .device
-                .cmd_bind_pipeline(state.current_cmd, vk::PipelineBindPoint::GRAPHICS, pipeline.pipeline);
+            self.device
+                .cmd_bind_pipeline(self.current_cmd, vk::PipelineBindPoint::GRAPHICS, pipeline.pipeline);
         }
         Ok(())
     }
 
     pub(crate) fn set_vertex_buffer(&mut self, slot: u32, buffer: &VulkanBuffer) -> Result<(), String> {
-        let state = self.state.borrow();
-        if !state.in_frame {
+        if !self.in_frame {
             return Err("set_vertex_buffer must be called between begin_frame/end_frame".to_string());
         }
         if slot != 0 {
             return Err("Vulkan backend currently supports only slot 0".to_string());
         }
         unsafe {
-            state.device.cmd_bind_vertex_buffers(state.current_cmd, 0, &[buffer.buffer], &[0]);
+            self.device.cmd_bind_vertex_buffers(self.current_cmd, 0, &[buffer.buffer], &[0]);
         }
         Ok(())
     }
 
     pub(crate) fn draw(&mut self, vertex_count: u32, first_vertex: u32) -> Result<(), String> {
-        let state = self.state.borrow();
-        if !state.in_frame {
+        if !self.in_frame {
             return Err("draw must be called between begin_frame/end_frame".to_string());
         }
         unsafe {
-            state.device.cmd_draw(state.current_cmd, vertex_count, 1, first_vertex, 0);
+            self.device.cmd_draw(self.current_cmd, vertex_count, 1, first_vertex, 0);
         }
         Ok(())
     }
 
     pub(crate) fn end_frame(&mut self, _window: &mut Window) -> Result<(), String> {
-        let mut state = self.state.borrow_mut();
-        if !state.in_frame {
+        if !self.in_frame {
             return Err("end_frame called without begin_frame".to_string());
         }
 
         unsafe {
-            state.device.cmd_end_render_pass(state.current_cmd);
-            state
-                .device
-                .end_command_buffer(state.current_cmd)
+            self.device.cmd_end_render_pass(self.current_cmd);
+            self.device
+                .end_command_buffer(self.current_cmd)
                 .map_err(|e| format!("vkEndCommandBuffer failed: {e:?}"))?;
         }
 
-        let wait_semaphores = [state.image_available];
+        let wait_semaphores = [self.image_available];
         let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-        let signal_semaphores = [state.render_finished];
+        let signal_semaphores = [self.render_finished];
 
         let submit_info = vk::SubmitInfo::default()
             .wait_semaphores(&wait_semaphores)
             .wait_dst_stage_mask(&wait_stages)
-            .command_buffers(std::slice::from_ref(&state.current_cmd))
+            .command_buffers(std::slice::from_ref(&self.current_cmd))
             .signal_semaphores(&signal_semaphores);
 
         unsafe {
-            state
-                .device
-                .reset_fences(&[state.in_flight])
+            self.device
+                .reset_fences(&[self.in_flight])
                 .map_err(|e| format!("vkResetFences failed: {e:?}"))?;
-            state
-                .device
-                .queue_submit(state.queue, &[submit_info], state.in_flight)
+            self.device
+                .queue_submit(self.queue, &[submit_info], self.in_flight)
                 .map_err(|e| format!("vkQueueSubmit failed: {e:?}"))?;
         }
 
-        let swapchains = [state.swapchain];
-        let image_indices = [state.current_image_index];
+        let swapchains = [self.swapchain];
+        let image_indices = [self.current_image_index];
 
         let present_info = vk::PresentInfoKHR::default()
             .wait_semaphores(&signal_semaphores)
@@ -583,47 +536,42 @@ impl VulkanGraphics {
             .image_indices(&image_indices);
 
         unsafe {
-            match state
-                .swapchain_loader
-                .queue_present(state.queue, &present_info)
+            match self.swapchain_loader.queue_present(self.queue, &present_info)
             {
                 Ok(suboptimal) => {
                     if suboptimal {
-                        state.swapchain_dirty = true;
+                        self.swapchain_dirty = true;
                     }
                 }
                 Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
                     // Common during resize/minimize.
-                    state.swapchain_dirty = true;
-                    state.in_frame = false;
-                    state.current_cmd = vk::CommandBuffer::null();
+                    self.swapchain_dirty = true;
+                    self.in_frame = false;
+                    self.current_cmd = vk::CommandBuffer::null();
                     return Ok(());
                 }
                 Err(vk::Result::ERROR_SURFACE_LOST_KHR) => {
                     // Common during close or when the underlying surface becomes invalid.
-                    state.swapchain_dirty = true;
-                    state.surface_lost = true;
-                    state.in_frame = false;
-                    state.current_cmd = vk::CommandBuffer::null();
+                    self.swapchain_dirty = true;
+                    self.surface_lost = true;
+                    self.in_frame = false;
+                    self.current_cmd = vk::CommandBuffer::null();
                     return Ok(());
                 }
                 Err(e) => return Err(format!("vkQueuePresentKHR failed: {e:?}")),
             }
         }
 
-        state.in_frame = false;
-        state.current_cmd = vk::CommandBuffer::null();
+        self.in_frame = false;
+        self.current_cmd = vk::CommandBuffer::null();
         Ok(())
     }
 
     pub(crate) fn shutdown(&mut self, window: &mut Window) -> Result<(), String> {
         // If we're mid-frame, try to finish it; if that fails (surface lost/out-of-date),
         // still continue shutdown.
-        {
-            let in_frame = self.state.borrow().in_frame;
-            if in_frame {
-                let _ = self.end_frame(window);
-            }
+        if self.in_frame {
+            let _ = self.end_frame(window);
         }
 
         // Vulkan WSI progress can depend on the OS message pump.
@@ -634,9 +582,8 @@ impl VulkanGraphics {
             let _ = window.poll_events();
 
             let fence_done = {
-                let state = self.state.borrow();
                 unsafe {
-                    match state.device.wait_for_fences(&[state.in_flight], true, 0) {
+                    match self.device.wait_for_fences(&[self.in_flight], true, 0) {
                         Ok(_) => true,
                         Err(vk::Result::TIMEOUT) => false,
                         Err(_) => false,
@@ -657,37 +604,33 @@ impl VulkanGraphics {
 
 impl Drop for VulkanGraphics {
     fn drop(&mut self) {
-        let state = match self.state.try_borrow_mut() {
-            Ok(s) => s,
-            Err(_) => return,
-        };
         unsafe {
             // Some drivers/WSI paths can hang in vkDeviceWaitIdle during teardown
             // (especially if the window message pump stops). Do a bounded wait on
             // our in-flight fence as a best-effort sync to avoid TDRs.
-            let _ = state.device.wait_for_fences(&[state.in_flight], true, 2_000_000_000);
+            let _ = self.device.wait_for_fences(&[self.in_flight], true, 2_000_000_000);
 
-            state.device.destroy_fence(state.in_flight, None);
-            state.device.destroy_semaphore(state.render_finished, None);
-            state.device.destroy_semaphore(state.image_available, None);
+            self.device.destroy_fence(self.in_flight, None);
+            self.device.destroy_semaphore(self.render_finished, None);
+            self.device.destroy_semaphore(self.image_available, None);
 
-            state.device.free_command_buffers(state.command_pool, &state.command_buffers);
-            state.device.destroy_command_pool(state.command_pool, None);
+            self.device.free_command_buffers(self.command_pool, &self.command_buffers);
+            self.device.destroy_command_pool(self.command_pool, None);
 
-            for fb in &state.framebuffers {
-                state.device.destroy_framebuffer(*fb, None);
+            for fb in &self.framebuffers {
+                self.device.destroy_framebuffer(*fb, None);
             }
-            state.device.destroy_render_pass(state.render_pass, None);
+            self.device.destroy_render_pass(self.render_pass, None);
 
-            for view in &state.swapchain_image_views {
-                state.device.destroy_image_view(*view, None);
+            for view in &self.swapchain_image_views {
+                self.device.destroy_image_view(*view, None);
             }
 
-            state.swapchain_loader.destroy_swapchain(state.swapchain, None);
-            state.surface_loader.destroy_surface(state.surface, None);
+            self.swapchain_loader.destroy_swapchain(self.swapchain, None);
+            self.surface_loader.destroy_surface(self.surface, None);
 
-            state.device.destroy_device(None);
-            state.instance.destroy_instance(None);
+            self.device.destroy_device(None);
+            self.instance.destroy_instance(None);
         }
     }
 }
