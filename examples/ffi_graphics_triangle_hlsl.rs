@@ -21,30 +21,36 @@ use kingogfx::graphics::ffi::{
 };
 
 fn create_pipeline(graphics: *mut KgfxGraphics) -> (*mut KgfxShader, *mut KgfxPipeline) {
-    let vs_src = r#"
-        #version 330 core
-        layout (location = 0) in vec2 aPos;
-        void main() {
-            gl_Position = vec4(aPos.xy, 0.0, 1.0);
+    let vs_hlsl = r#"
+        struct VSIn {
+            float2 pos : POSITION;
+        };
+
+        struct VSOut {
+            float4 pos : SV_POSITION;
+        };
+
+        VSOut main(VSIn input) {
+            VSOut o;
+            o.pos = float4(input.pos, 0.0, 1.0);
+            return o;
         }
     "#;
 
-    let fs_src = r#"
-        #version 330 core
-        out vec4 FragColor;
-        void main() {
-            FragColor = vec4(1.0, 0.6, 0.2, 1.0);
+    let ps_hlsl = r#"
+        float4 main() : SV_TARGET {
+            return float4(1.0, 0.6, 0.2, 1.0);
         }
     "#;
 
-    let vs_c = CString::new(vs_src).expect("vertex shader contains interior NUL");
-    let fs_c = CString::new(fs_src).expect("fragment shader contains interior NUL");
+    let vs_c = CString::new(vs_hlsl).expect("vertex shader contains interior NUL");
+    let fs_c = CString::new(ps_hlsl).expect("fragment shader contains interior NUL");
 
     let mut shader: *mut KgfxShader = std::ptr::null_mut();
     let desc = KgfxShaderCreateDesc {
-        vertex_language: KgfxShaderLanguage::Glsl,
+        vertex_language: KgfxShaderLanguage::Hlsl,
         vertex_source: vs_c.as_ptr(),
-        fragment_language: KgfxShaderLanguage::Glsl,
+        fragment_language: KgfxShaderLanguage::Hlsl,
         fragment_source: fs_c.as_ptr(),
     };
 
@@ -87,7 +93,7 @@ fn main() {
     let mut graphics: *mut KgfxGraphics = std::ptr::null_mut();
     let status = kgfx_graphics_create(
         window as *mut _, // Window pointer as c_void
-        KgfxApi::DirectX11,
+        KgfxApi::Vulkan,
         &mut graphics,
     );
     if status != KgfxStatus::Ok || graphics.is_null() {

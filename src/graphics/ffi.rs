@@ -46,6 +46,22 @@ pub enum KgfxApi {
     DirectX12,
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum KgfxShaderLanguage {
+    Glsl,
+    Hlsl,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct KgfxShaderCreateDesc {
+    pub vertex_language: KgfxShaderLanguage,
+    pub vertex_source: *const c_char,
+    pub fragment_language: KgfxShaderLanguage,
+    pub fragment_source: *const c_char,
+}
+
 fn as_graphics_mut<'a>(handle: *mut KgfxGraphics) -> Option<&'a mut Graphics> {
     if handle.is_null() {
         None
@@ -150,28 +166,54 @@ pub extern "C" fn kgfx_graphics_create_pipeline(
 #[unsafe(no_mangle)]
 pub extern "C" fn kgfx_graphics_create_shader(
     graphics: *mut KgfxGraphics,
-    vertex_source: *const c_char,
-    fragment_source: *const c_char,
+    desc: *const KgfxShaderCreateDesc,
     out_shader: *mut *mut KgfxShader,
 ) -> KgfxStatus {
     let Some(gfx) = as_graphics_mut(graphics) else { return KgfxStatus::Error };
-    if vertex_source.is_null() || fragment_source.is_null() {
+    if desc.is_null() || out_shader.is_null() {
         return KgfxStatus::Error;
     }
 
-    let vertex_source = unsafe { CStr::from_ptr(vertex_source) }.to_str().unwrap_or("");
-    let fragment_source = unsafe { CStr::from_ptr(fragment_source) }.to_str().unwrap_or("");
+    let desc = unsafe { &*desc };
+    if desc.vertex_source.is_null() || desc.fragment_source.is_null() {
+        return KgfxStatus::Error;
+    }
 
-    match gfx.create_shader(ShaderDescriptor {
-        vertex: ShaderSource::glsl(vertex_source),
-        fragment: ShaderSource::glsl(fragment_source),
-    }) {
+    let vertex_source = unsafe { CStr::from_ptr(desc.vertex_source) }.to_str().unwrap_or("");
+    let fragment_source = unsafe { CStr::from_ptr(desc.fragment_source) }.to_str().unwrap_or("");
+
+    let vertex = match desc.vertex_language {
+        KgfxShaderLanguage::Glsl => ShaderSource::glsl(vertex_source),
+        KgfxShaderLanguage::Hlsl => ShaderSource::hlsl(vertex_source),
+    };
+    let fragment = match desc.fragment_language {
+        KgfxShaderLanguage::Glsl => ShaderSource::glsl(fragment_source),
+        KgfxShaderLanguage::Hlsl => ShaderSource::hlsl(fragment_source),
+    };
+
+    match gfx.create_shader(ShaderDescriptor { vertex, fragment }) {
         Ok(shader) => {
             unsafe { *out_shader = Box::into_raw(Box::new(shader)).cast(); }
             KgfxStatus::Ok
         }
         Err(_) => KgfxStatus::Error,
     }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn kgfx_graphics_create_shader_legacy(
+    graphics: *mut KgfxGraphics,
+    vertex_source: *const c_char,
+    fragment_source: *const c_char,
+    out_shader: *mut *mut KgfxShader,
+) -> KgfxStatus {
+    let desc = KgfxShaderCreateDesc {
+        vertex_language: KgfxShaderLanguage::Glsl,
+        vertex_source,
+        fragment_language: KgfxShaderLanguage::Glsl,
+        fragment_source,
+    };
+    kgfx_graphics_create_shader(graphics, &desc, out_shader)
 }
 
 #[unsafe(no_mangle)]
