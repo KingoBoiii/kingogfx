@@ -1,4 +1,4 @@
-use crate::window::{Input, KeyCode, KeyEvent};
+use crate::window::{Input, KeyCode, KgfxEvent};
 
 pub mod window;
 pub mod graphics;
@@ -12,23 +12,29 @@ pub extern "C" fn kgfx_shutdown() -> () {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kgfx_is_key_pressed(event: KeyEvent, key_code: KeyCode) -> bool {
-    Input::is_key_released(event, key_code)
+pub extern "C" fn kgfx_is_key_pressed(event: KgfxEvent, key_code: KeyCode) -> bool {
+    matches!(event.as_key(), Some(k) if Input::is_key_pressed(k, key_code))
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kgfx_is_key_released(event: KeyEvent, key_code: KeyCode) -> bool {
-    Input::is_key_released(event, key_code)
+pub extern "C" fn kgfx_is_key_released(event: KgfxEvent, key_code: KeyCode) -> bool {
+    matches!(event.as_key(), Some(k) if Input::is_key_released(k, key_code))
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kgfx_is_key_pressed_i32(event: KeyEvent, key_code: i32) -> bool {
-    matches!(KeyCode::from_i32(key_code), Some(k) if Input::is_key_released(event, k))
+pub extern "C" fn kgfx_is_key_pressed_i32(event: KgfxEvent, key_code: i32) -> bool {
+    let Some(key_code) = KeyCode::from_i32(key_code) else {
+        return false;
+    };
+    matches!(event.as_key(), Some(k) if Input::is_key_pressed(k, key_code))
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kgfx_is_key_released_i32(event: KeyEvent, key_code: i32) -> bool {
-    matches!(KeyCode::from_i32(key_code), Some(k) if Input::is_key_released(event, k))
+pub extern "C" fn kgfx_is_key_released_i32(event: KgfxEvent, key_code: i32) -> bool {
+    let Some(key_code) = KeyCode::from_i32(key_code) else {
+        return false;
+    };
+    matches!(event.as_key(), Some(k) if Input::is_key_released(k, key_code))
 }
 
 pub fn add(left: u64, right: u64) -> u64 {

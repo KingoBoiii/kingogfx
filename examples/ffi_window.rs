@@ -34,7 +34,7 @@ fn main() {
                         k.key_code, k.action, k.modifiers
                     );
 
-                    if kgfx_is_key_pressed(k, KgfxKeyCode::Escape) {
+                    if kgfx_is_key_pressed(event, KgfxKeyCode::Escape) {
                         kgfx_window_set_should_close(handle, true);
                     }
                 }

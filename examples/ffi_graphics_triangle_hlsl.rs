@@ -129,10 +129,8 @@ fn main() {
                     kgfx_window_set_should_close(window, true);
                 }
                 KgfxEventKind::Key => {
-                    if let Some(k) = event.as_key() {
-                        if kgfx_is_key_pressed(k, KgfxKeyCode::Escape) {
-                            kgfx_window_set_should_close(window, true);
-                        }
+                    if kgfx_is_key_pressed(event, KgfxKeyCode::Escape) {
+                        kgfx_window_set_should_close(window, true);
                     }
                 }
                 _ => {}
