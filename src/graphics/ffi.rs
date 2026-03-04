@@ -41,7 +41,8 @@ pub enum KgfxStatus {
 pub enum KgfxApi {
     OpenGL,
     Vulkan,
-    DirectX,
+    DirectX11,
+    DirectX12,
 }
 
 fn as_graphics_mut<'a>(handle: *mut KgfxGraphics) -> Option<&'a mut Graphics> {
@@ -83,7 +84,8 @@ pub extern "C" fn kgfx_graphics_create(
     let api = match api {
         KgfxApi::OpenGL => GraphicsApi::OpenGL,
         KgfxApi::Vulkan => GraphicsApi::Vulkan,
-        KgfxApi::DirectX => GraphicsApi::DirectX,
+        KgfxApi::DirectX11 => GraphicsApi::DirectX11,
+        KgfxApi::DirectX12 => GraphicsApi::DirectX12,
     };
     match Graphics::create(window, api) {
         Ok(gfx) => {
@@ -162,6 +164,8 @@ pub extern "C" fn kgfx_graphics_create_shader(
     match gfx.create_shader(ShaderDescriptor {
         vertex_source_glsl: vertex_source,
         fragment_source_glsl: fragment_source,
+        vertex_source_hlsl: None,
+        fragment_source_hlsl: None,
     }) {
         Ok(shader) => {
             unsafe { *out_shader = Box::into_raw(Box::new(shader)).cast(); }

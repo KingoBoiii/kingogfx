@@ -8,7 +8,8 @@ use std::sync::Arc;
 pub enum GraphicsApi {
     OpenGL,
     Vulkan,
-    DirectX,
+    DirectX11,
+    DirectX12,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -40,6 +41,11 @@ pub struct PipelineDescriptor<'a> {
 pub struct ShaderDescriptor<'a> {
     pub vertex_source_glsl: &'a str,
     pub fragment_source_glsl: &'a str,
+
+    /// Optional HLSL sources used by DirectX backends.
+    /// If a DirectX backend is selected and these are `None`, shader creation will fail.
+    pub vertex_source_hlsl: Option<&'a str>,
+    pub fragment_source_hlsl: Option<&'a str>,
 }
 
 pub struct Buffer {
@@ -62,22 +68,29 @@ pub struct Graphics {
 enum GraphicsInner {
     OpenGL(backends::opengl::OpenGLGraphics),
     Vulkan(backends::vulkan::VulkanGraphics),
-    DirectX,
+    DirectX11(backends::directx11::DirectX11Graphics),
+    DirectX12(backends::directx12::DirectX12Graphics),
 }
 
 pub(crate) enum BufferInner {
     OpenGL(backends::opengl::OpenGLBuffer),
     Vulkan(backends::vulkan::VulkanBuffer),
+    DirectX11(backends::directx11::DirectX11Buffer),
+    DirectX12(backends::directx12::DirectX12Buffer),
 }
 
 pub(crate) enum ShaderInner {
     OpenGL(Arc<backends::opengl::OpenGLShader>),
     Vulkan(Arc<backends::vulkan::VulkanShader>),
+    DirectX11(Arc<backends::directx11::DirectX11Shader>),
+    DirectX12(Arc<backends::directx12::DirectX12Shader>),
 }
 
 pub(crate) enum PipelineInner {
     OpenGL(backends::opengl::OpenGLPipeline),
     Vulkan(backends::vulkan::VulkanPipeline),
+    DirectX11(backends::directx11::DirectX11Pipeline),
+    DirectX12(backends::directx12::DirectX12Pipeline),
 }
 
 impl Graphics {
@@ -89,7 +102,12 @@ impl Graphics {
             GraphicsApi::Vulkan => GraphicsInner::Vulkan(
                 backends::vulkan::VulkanGraphics::create(window).map_err(GraphicsError::from)?,
             ),
-            GraphicsApi::DirectX => GraphicsInner::DirectX,
+            GraphicsApi::DirectX11 => GraphicsInner::DirectX11(
+                backends::directx11::DirectX11Graphics::create(window).map_err(GraphicsError::from)?,
+            ),
+            GraphicsApi::DirectX12 => GraphicsInner::DirectX12(
+                backends::directx12::DirectX12Graphics::create(window).map_err(GraphicsError::from)?,
+            ),
         };
 
         Ok(Self { api, inner })
@@ -103,7 +121,8 @@ impl Graphics {
         match &mut self.inner {
             GraphicsInner::OpenGL(gfx) => gfx.set_viewport(x, y, width, height),
             GraphicsInner::Vulkan(gfx) => gfx.set_viewport(x, y, width, height),
-            GraphicsInner::DirectX => {}
+            GraphicsInner::DirectX11(gfx) => gfx.set_viewport(x, y, width, height),
+            GraphicsInner::DirectX12(gfx) => gfx.set_viewport(x, y, width, height),
         }
     }
 
@@ -115,9 +134,12 @@ impl Graphics {
             GraphicsInner::Vulkan(gfx) => BufferInner::Vulkan(
                 gfx.create_buffer_init(data, usage).map_err(GraphicsError::from)?,
             ),
-            GraphicsInner::DirectX => {
-                return Err(GraphicsError("DirectX backend not implemented".to_string()));
-            }
+            GraphicsInner::DirectX11(gfx) => BufferInner::DirectX11(
+                gfx.create_buffer_init(data, usage).map_err(GraphicsError::from)?,
+            ),
+            GraphicsInner::DirectX12(gfx) => BufferInner::DirectX12(
+                gfx.create_buffer_init(data, usage).map_err(GraphicsError::from)?,
+            ),
         };
         Ok(Buffer { inner })
     }
@@ -130,9 +152,12 @@ impl Graphics {
             GraphicsInner::Vulkan(gfx) => ShaderInner::Vulkan(
                 gfx.create_shader(desc).map_err(GraphicsError::from)?,
             ),
-            GraphicsInner::DirectX => {
-                return Err(GraphicsError("DirectX backend not implemented".to_string()));
-            }
+            GraphicsInner::DirectX11(gfx) => ShaderInner::DirectX11(
+                gfx.create_shader(desc).map_err(GraphicsError::from)?,
+            ),
+            GraphicsInner::DirectX12(gfx) => ShaderInner::DirectX12(
+                gfx.create_shader(desc).map_err(GraphicsError::from)?,
+            ),
         };
 
         Ok(Shader { inner })
@@ -146,9 +171,12 @@ impl Graphics {
             (GraphicsInner::Vulkan(gfx), ShaderInner::Vulkan(shader)) => PipelineInner::Vulkan(
                 gfx.create_pipeline(shader).map_err(GraphicsError::from)?,
             ),
-            (GraphicsInner::DirectX, _) => {
-                return Err(GraphicsError("DirectX backend not implemented".to_string()));
-            }
+            (GraphicsInner::DirectX11(gfx), ShaderInner::DirectX11(shader)) => PipelineInner::DirectX11(
+                gfx.create_pipeline(shader).map_err(GraphicsError::from)?,
+            ),
+            (GraphicsInner::DirectX12(gfx), ShaderInner::DirectX12(shader)) => PipelineInner::DirectX12(
+                gfx.create_pipeline(shader).map_err(GraphicsError::from)?,
+            ),
             _ => {
                 return Err(GraphicsError(
                     "Shader was created for a different backend".to_string(),
@@ -162,7 +190,8 @@ impl Graphics {
         match &mut self.inner {
             GraphicsInner::OpenGL(gfx) => gfx.begin_frame(window, clear).map_err(GraphicsError::from),
             GraphicsInner::Vulkan(gfx) => gfx.begin_frame(window, clear).map_err(GraphicsError::from),
-            GraphicsInner::DirectX => Err(GraphicsError("DirectX backend not implemented".to_string())),
+            GraphicsInner::DirectX11(gfx) => gfx.begin_frame(window, clear).map_err(GraphicsError::from),
+            GraphicsInner::DirectX12(gfx) => gfx.begin_frame(window, clear).map_err(GraphicsError::from),
         }
     }
 
@@ -170,6 +199,8 @@ impl Graphics {
         match (&mut self.inner, &pipeline.inner) {
             (GraphicsInner::OpenGL(gfx), PipelineInner::OpenGL(p)) => gfx.set_pipeline(p).map_err(GraphicsError::from),
             (GraphicsInner::Vulkan(gfx), PipelineInner::Vulkan(p)) => gfx.set_pipeline(p).map_err(GraphicsError::from),
+            (GraphicsInner::DirectX11(gfx), PipelineInner::DirectX11(p)) => gfx.set_pipeline(p).map_err(GraphicsError::from),
+            (GraphicsInner::DirectX12(gfx), PipelineInner::DirectX12(p)) => gfx.set_pipeline(p).map_err(GraphicsError::from),
             _ => Err(GraphicsError("Pipeline was created for a different backend".to_string())),
         }
     }
@@ -182,6 +213,12 @@ impl Graphics {
             (GraphicsInner::Vulkan(gfx), BufferInner::Vulkan(b)) => {
                 gfx.set_vertex_buffer(slot, b).map_err(GraphicsError::from)
             }
+            (GraphicsInner::DirectX11(gfx), BufferInner::DirectX11(b)) => {
+                gfx.set_vertex_buffer(slot, b).map_err(GraphicsError::from)
+            }
+            (GraphicsInner::DirectX12(gfx), BufferInner::DirectX12(b)) => {
+                gfx.set_vertex_buffer(slot, b).map_err(GraphicsError::from)
+            }
             _ => Err(GraphicsError("Buffer was created for a different backend".to_string())),
         }
     }
@@ -190,7 +227,8 @@ impl Graphics {
         match &mut self.inner {
             GraphicsInner::OpenGL(gfx) => gfx.draw(vertex_count, first_vertex).map_err(GraphicsError::from),
             GraphicsInner::Vulkan(gfx) => gfx.draw(vertex_count, first_vertex).map_err(GraphicsError::from),
-            GraphicsInner::DirectX => Err(GraphicsError("DirectX backend not implemented".to_string())),
+            GraphicsInner::DirectX11(gfx) => gfx.draw(vertex_count, first_vertex).map_err(GraphicsError::from),
+            GraphicsInner::DirectX12(gfx) => gfx.draw(vertex_count, first_vertex).map_err(GraphicsError::from),
         }
     }
 
@@ -198,7 +236,8 @@ impl Graphics {
         match &mut self.inner {
             GraphicsInner::OpenGL(gfx) => gfx.end_frame(window).map_err(GraphicsError::from),
             GraphicsInner::Vulkan(gfx) => gfx.end_frame(window).map_err(GraphicsError::from),
-            GraphicsInner::DirectX => Err(GraphicsError("DirectX backend not implemented".to_string())),
+            GraphicsInner::DirectX11(gfx) => gfx.end_frame(window).map_err(GraphicsError::from),
+            GraphicsInner::DirectX12(gfx) => gfx.end_frame(window).map_err(GraphicsError::from),
         }
     }
 
@@ -208,7 +247,8 @@ impl Graphics {
         match &mut self.inner {
             GraphicsInner::OpenGL(_gfx) => Ok(()),
             GraphicsInner::Vulkan(gfx) => gfx.shutdown(window).map_err(GraphicsError::from),
-            GraphicsInner::DirectX => Ok(()),
+            GraphicsInner::DirectX11(gfx) => gfx.shutdown(window).map_err(GraphicsError::from),
+            GraphicsInner::DirectX12(gfx) => gfx.shutdown(window).map_err(GraphicsError::from),
         }
     }
 }
@@ -218,6 +258,8 @@ impl Drop for Buffer {
         match &mut self.inner {
             BufferInner::OpenGL(b) => b.destroy(),
             BufferInner::Vulkan(b) => b.destroy(),
+            BufferInner::DirectX11(b) => b.destroy(),
+            BufferInner::DirectX12(b) => b.destroy(),
         }
     }
 }
@@ -227,6 +269,8 @@ impl Drop for Pipeline {
         match &mut self.inner {
             PipelineInner::OpenGL(p) => p.destroy(),
             PipelineInner::Vulkan(p) => p.destroy(),
+            PipelineInner::DirectX11(p) => p.destroy(),
+            PipelineInner::DirectX12(p) => p.destroy(),
         }
     }
 }

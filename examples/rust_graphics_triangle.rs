@@ -35,6 +35,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.create_shader(ShaderDescriptor {
 			vertex_source_glsl: vs_src,
 			fragment_source_glsl: fs_src,
+			vertex_source_hlsl: None,
+			fragment_source_hlsl: None,
 		})
 		.expect("Failed to create shader");
 
