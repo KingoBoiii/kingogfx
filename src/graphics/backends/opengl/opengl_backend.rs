@@ -1,4 +1,3 @@
-use crate::gl::GLProcLoader;
 use crate::window::Window;
 use crate::graphics::backend::GraphicsBackend;
 use gl;

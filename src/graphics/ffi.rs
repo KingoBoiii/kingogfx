@@ -1,7 +1,17 @@
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_int, c_float, c_void};
 
-use super::{Graphics, GraphicsApi, Shader, Pipeline, VertexBuffer};
+use super::{
+    Buffer,
+    BufferUsage,
+    ClearColor,
+    Graphics,
+    GraphicsApi,
+    Pipeline,
+    PipelineDescriptor,
+    Shader,
+    ShaderDescriptor,
+};
 use crate::window::Window;
 
 #[repr(C)]
@@ -9,11 +19,11 @@ pub struct KgfxGraphics {
     _private: [u8; 0],
 }
 #[repr(C)]
-pub struct KgfxShader {
+pub struct KgfxPipeline {
     _private: [u8; 0],
 }
 #[repr(C)]
-pub struct KgfxPipeline {
+pub struct KgfxShader {
     _private: [u8; 0],
 }
 #[repr(C)]
@@ -41,13 +51,6 @@ fn as_graphics_mut<'a>(handle: *mut KgfxGraphics) -> Option<&'a mut Graphics> {
         Some(unsafe { &mut *handle.cast::<Graphics>() })
     }
 }
-fn as_shader_mut<'a>(handle: *mut KgfxShader) -> Option<&'a mut Shader> {
-    if handle.is_null() {
-        None
-    } else {
-        Some(unsafe { &mut *handle.cast::<Shader>() })
-    }
-}
 fn as_pipeline_mut<'a>(handle: *mut KgfxPipeline) -> Option<&'a mut Pipeline> {
     if handle.is_null() {
         None
@@ -55,11 +58,18 @@ fn as_pipeline_mut<'a>(handle: *mut KgfxPipeline) -> Option<&'a mut Pipeline> {
         Some(unsafe { &mut *handle.cast::<Pipeline>() })
     }
 }
-fn as_vertex_buffer_mut<'a>(handle: *mut KgfxVertexBuffer) -> Option<&'a mut VertexBuffer> {
+fn as_shader_mut<'a>(handle: *mut KgfxShader) -> Option<&'a mut Shader> {
     if handle.is_null() {
         None
     } else {
-        Some(unsafe { &mut *handle.cast::<VertexBuffer>() })
+        Some(unsafe { &mut *handle.cast::<Shader>() })
+    }
+}
+fn as_vertex_buffer_mut<'a>(handle: *mut KgfxVertexBuffer) -> Option<&'a mut Buffer> {
+    if handle.is_null() {
+        None
+    } else {
+        Some(unsafe { &mut *handle.cast::<Buffer>() })
     }
 }
 
@@ -92,21 +102,16 @@ pub extern "C" fn kgfx_graphics_destroy(graphics: *mut KgfxGraphics) {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kgfx_graphics_clear(graphics: *mut KgfxGraphics) {
-    let Some(gfx) = as_graphics_mut(graphics) else { return };
-    gfx.clear();
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn kgfx_graphics_clear_color(
-    graphics: *mut KgfxGraphics,
-    r: c_float,
-    g: c_float,
-    b: c_float,
-    a: c_float,
-) {
-    let Some(gfx) = as_graphics_mut(graphics) else { return };
-    gfx.clear_color(r, g, b, a);
+pub extern "C" fn kgfx_graphics_shutdown(graphics: *mut KgfxGraphics, window: *mut c_void) -> KgfxStatus {
+    let Some(gfx) = as_graphics_mut(graphics) else { return KgfxStatus::Error };
+    if window.is_null() {
+        return KgfxStatus::Error;
+    }
+    let window = unsafe { &mut *(window as *mut Window) };
+    match gfx.shutdown(window) {
+        Ok(()) => KgfxStatus::Ok,
+        Err(_) => KgfxStatus::Error,
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -118,19 +123,27 @@ pub extern "C" fn kgfx_graphics_viewport(
     height: c_int,
 ) {
     let Some(gfx) = as_graphics_mut(graphics) else { return };
-    gfx.viewport(x, y, width, height);
+    gfx.set_viewport(x, y, width, height);
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kgfx_graphics_draw_arrays(
+pub extern "C" fn kgfx_graphics_create_pipeline(
     graphics: *mut KgfxGraphics,
-    count: c_int,
-) {
-    let Some(gfx) = as_graphics_mut(graphics) else { return };
-    gfx.draw_arrays(count);
+    shader: *mut KgfxShader,
+    out_pipeline: *mut *mut KgfxPipeline,
+) -> KgfxStatus {
+    let Some(gfx) = as_graphics_mut(graphics) else { return KgfxStatus::Error };
+    let Some(shader) = as_shader_mut(shader) else { return KgfxStatus::Error };
+
+    match gfx.create_pipeline(PipelineDescriptor { shader }) {
+        Ok(pipeline) => {
+            unsafe { *out_pipeline = Box::into_raw(Box::new(pipeline)).cast(); }
+            KgfxStatus::Ok
+        }
+        Err(_) => KgfxStatus::Error,
+    }
 }
 
-// Shader
 #[unsafe(no_mangle)]
 pub extern "C" fn kgfx_graphics_create_shader(
     graphics: *mut KgfxGraphics,
@@ -139,13 +152,17 @@ pub extern "C" fn kgfx_graphics_create_shader(
     out_shader: *mut *mut KgfxShader,
 ) -> KgfxStatus {
     let Some(gfx) = as_graphics_mut(graphics) else { return KgfxStatus::Error };
-    let vertex_source = unsafe {
-        CStr::from_ptr(vertex_source).to_str().unwrap_or("").to_string()
-    };
-    let fragment_source = unsafe {
-        CStr::from_ptr(fragment_source).to_str().unwrap_or("").to_string()
-    };
-    match gfx.create_shader(&vertex_source, &fragment_source) {
+    if vertex_source.is_null() || fragment_source.is_null() {
+        return KgfxStatus::Error;
+    }
+
+    let vertex_source = unsafe { CStr::from_ptr(vertex_source) }.to_str().unwrap_or("");
+    let fragment_source = unsafe { CStr::from_ptr(fragment_source) }.to_str().unwrap_or("");
+
+    match gfx.create_shader(ShaderDescriptor {
+        vertex_source_glsl: vertex_source,
+        fragment_source_glsl: fragment_source,
+    }) {
         Ok(shader) => {
             unsafe { *out_shader = Box::into_raw(Box::new(shader)).cast(); }
             KgfxStatus::Ok
@@ -161,22 +178,6 @@ pub extern "C" fn kgfx_shader_destroy(shader: *mut KgfxShader) {
     }
 }
 
-// Pipeline
-#[unsafe(no_mangle)]
-pub extern "C" fn kgfx_graphics_create_pipeline(
-    graphics: *mut KgfxGraphics,
-    out_pipeline: *mut *mut KgfxPipeline,
-) -> KgfxStatus {
-    let Some(gfx) = as_graphics_mut(graphics) else { return KgfxStatus::Error };
-    match gfx.create_pipeline() {
-        Ok(pipeline) => {
-            unsafe { *out_pipeline = Box::into_raw(Box::new(pipeline)).cast(); }
-            KgfxStatus::Ok
-        }
-        Err(_) => KgfxStatus::Error,
-    }
-}
-
 #[unsafe(no_mangle)]
 pub extern "C" fn kgfx_pipeline_destroy(pipeline: *mut KgfxPipeline) {
     if !pipeline.is_null() {
@@ -184,7 +185,7 @@ pub extern "C" fn kgfx_pipeline_destroy(pipeline: *mut KgfxPipeline) {
     }
 }
 
-// Vertex Buffer
+// Vertex Buffer (float array)
 #[unsafe(no_mangle)]
 pub extern "C" fn kgfx_graphics_create_vertex_buffer(
     graphics: *mut KgfxGraphics,
@@ -197,7 +198,8 @@ pub extern "C" fn kgfx_graphics_create_vertex_buffer(
         return KgfxStatus::Error;
     }
     let slice = unsafe { std::slice::from_raw_parts(data, len) };
-    match gfx.create_vertex_buffer(slice) {
+
+    match gfx.create_buffer_init(slice, BufferUsage::Vertex) {
         Ok(buffer) => {
             unsafe { *out_buffer = Box::into_raw(Box::new(buffer)).cast(); }
             KgfxStatus::Ok
@@ -209,30 +211,84 @@ pub extern "C" fn kgfx_graphics_create_vertex_buffer(
 #[unsafe(no_mangle)]
 pub extern "C" fn kgfx_vertex_buffer_destroy(buffer: *mut KgfxVertexBuffer) {
     if !buffer.is_null() {
-        unsafe { drop(Box::from_raw(buffer.cast::<VertexBuffer>())); }
+        unsafe { drop(Box::from_raw(buffer.cast::<Buffer>())); }
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kgfx_graphics_bind_shader(
-    shader: *mut KgfxShader,
-) {
-    let Some(shader) = as_shader_mut(shader) else { return };
-    shader.bind();
+pub extern "C" fn kgfx_graphics_begin_frame(
+    graphics: *mut KgfxGraphics,
+    window: *mut c_void,
+    r: c_float,
+    g: c_float,
+    b: c_float,
+    a: c_float,
+) -> KgfxStatus {
+    let Some(gfx) = as_graphics_mut(graphics) else { return KgfxStatus::Error };
+    if window.is_null() {
+        return KgfxStatus::Error;
+    }
+    let window = unsafe { &mut *(window as *mut Window) };
+    let clear = ClearColor { r, g, b, a };
+
+    match gfx.begin_frame(window, clear) {
+        Ok(()) => KgfxStatus::Ok,
+        Err(_) => KgfxStatus::Error,
+    }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kgfx_graphics_bind_pipeline(
+pub extern "C" fn kgfx_graphics_set_pipeline(
+    graphics: *mut KgfxGraphics,
     pipeline: *mut KgfxPipeline,
-) {
-    let Some(pipeline) = as_pipeline_mut(pipeline) else { return };
-    pipeline.bind();
+) -> KgfxStatus {
+    let Some(gfx) = as_graphics_mut(graphics) else { return KgfxStatus::Error };
+    let Some(p) = as_pipeline_mut(pipeline) else { return KgfxStatus::Error };
+    match gfx.set_pipeline(p) {
+        Ok(()) => KgfxStatus::Ok,
+        Err(_) => KgfxStatus::Error,
+    }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn kgfx_graphics_bind_vertex_buffer(
+pub extern "C" fn kgfx_graphics_set_vertex_buffer(
+    graphics: *mut KgfxGraphics,
+    slot: u32,
     buffer: *mut KgfxVertexBuffer,
-) {
-    let Some(buffer) = as_vertex_buffer_mut(buffer) else { return };
-    buffer.bind();
+) -> KgfxStatus {
+    let Some(gfx) = as_graphics_mut(graphics) else { return KgfxStatus::Error };
+    let Some(b) = as_vertex_buffer_mut(buffer) else { return KgfxStatus::Error };
+    match gfx.set_vertex_buffer(slot, b) {
+        Ok(()) => KgfxStatus::Ok,
+        Err(_) => KgfxStatus::Error,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn kgfx_graphics_draw(
+    graphics: *mut KgfxGraphics,
+    vertex_count: u32,
+    first_vertex: u32,
+) -> KgfxStatus {
+    let Some(gfx) = as_graphics_mut(graphics) else { return KgfxStatus::Error };
+    match gfx.draw(vertex_count, first_vertex) {
+        Ok(()) => KgfxStatus::Ok,
+        Err(_) => KgfxStatus::Error,
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn kgfx_graphics_end_frame(
+    graphics: *mut KgfxGraphics,
+    window: *mut c_void,
+) -> KgfxStatus {
+    let Some(gfx) = as_graphics_mut(graphics) else { return KgfxStatus::Error };
+    if window.is_null() {
+        return KgfxStatus::Error;
+    }
+    let window = unsafe { &mut *(window as *mut Window) };
+    match gfx.end_frame(window) {
+        Ok(()) => KgfxStatus::Ok,
+        Err(_) => KgfxStatus::Error,
+    }
 }

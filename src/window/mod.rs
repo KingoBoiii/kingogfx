@@ -13,7 +13,7 @@ use backend::WindowBackend;
 pub use events::*;
 pub use input::*;
 
-use crate::{gl::GLProcLoader, window::{builder::WindowBuilder, error::WindowError}};
+use crate::{window::{builder::WindowBuilder, error::WindowError}};
 
 pub struct Window {
     backend: Box<dyn WindowBackend>,
@@ -26,6 +26,10 @@ impl Window {
 
     pub fn new(width: u32, height: u32, title: impl Into<String>) -> Result<Self, WindowError> {
         Window::builder().size(width, height).title(title).build()
+    }
+
+    pub fn get_proc_address(&mut self, procname: &str) -> *const c_void {
+        self.backend.get_proc_address(procname)
     }
 
     pub fn make_current(&mut self) {
@@ -55,11 +59,13 @@ impl Window {
     pub fn set_should_close(&mut self, value: bool) {
         self.backend.set_should_close(value);
     }
-}
 
-impl GLProcLoader for Window {
-    fn get_proc_address(&mut self, procname: &str) -> *const c_void {
-        self.backend.get_proc_address(procname)
+    pub(crate) fn framebuffer_size(&self) -> (i32, i32) {
+        self.backend.framebuffer_size()
+    }
+
+    pub(crate) fn glfw_window_ptr(&mut self) -> *mut glfw_sys::GLFWwindow {
+        self.backend.glfw_window_ptr()
     }
 }
 

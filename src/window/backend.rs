@@ -11,4 +11,7 @@ pub(crate) trait WindowBackend {
     fn focus(&mut self);
     fn should_close(&self) -> bool;
     fn set_should_close(&mut self, value: bool);
+
+    fn framebuffer_size(&self) -> (i32, i32);
+    fn glfw_window_ptr(&mut self) -> *mut glfw_sys::GLFWwindow;
 }

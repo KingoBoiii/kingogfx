@@ -6,6 +6,7 @@ use std::ffi::c_void;
 use glfw::Context;
 
 use crate::window::backend::WindowBackend;
+use crate::window::builder::WindowClientApi;
 use crate::window::{KeyAction, KeyCode, KeyEvent, KeyModifiers, WindowError, WindowEvent};
 
 pub(crate) struct WindowHandle {
@@ -16,12 +17,24 @@ pub(crate) struct WindowHandle {
 }
 
 impl WindowHandle {
-    pub(crate) fn create(width: u32, height: u32, title: &str) -> Result<Self, WindowError> {
+    pub(crate) fn create(
+        width: u32,
+        height: u32,
+        title: &str,
+        client_api: WindowClientApi,
+    ) -> Result<Self, WindowError> {
         let mut glfw = glfw::init(glfw::fail_on_errors).map_err(|_| WindowError::InitFailed)?;
 
-        glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::OpenGl));
-        glfw.window_hint(glfw::WindowHint::ContextVersion(3, 3));
-        glfw.window_hint(glfw::WindowHint::OpenGlProfile(glfw::OpenGlProfileHint::Core));
+        match client_api {
+            WindowClientApi::OpenGl => {
+                glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::OpenGl));
+                glfw.window_hint(glfw::WindowHint::ContextVersion(3, 3));
+                glfw.window_hint(glfw::WindowHint::OpenGlProfile(glfw::OpenGlProfileHint::Core));
+            }
+            WindowClientApi::NoApi => {
+                glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi));
+            }
+        }
 
         let (mut window, events) = glfw
             .create_window(width, height, title, glfw::WindowMode::Windowed)
@@ -31,7 +44,9 @@ impl WindowHandle {
                 title: title.to_string(),
             })?;
 
-        window.make_current();
+        if client_api == WindowClientApi::OpenGl {
+            window.make_current();
+        }
         window.set_key_polling(true);
         window.set_close_polling(true);
 
@@ -120,5 +135,13 @@ impl WindowBackend for WindowHandle {
 
     fn set_should_close(&mut self, value: bool) {
         self.window.set_should_close(value);
+    }
+
+    fn framebuffer_size(&self) -> (i32, i32) {
+        self.window.get_framebuffer_size()
+    }
+
+    fn glfw_window_ptr(&mut self) -> *mut glfw_sys::GLFWwindow {
+        self.window.window_ptr()
     }
 }

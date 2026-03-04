@@ -1,17 +1,19 @@
+use kingogfx::window::builder::WindowClientApi;
 use kingogfx::window::{Input, KeyCode, Window, WindowEvent};
-use kingogfx::graphics::{Graphics, GraphicsApi};
+use kingogfx::graphics::{BufferUsage, ClearColor, Graphics, GraphicsApi, PipelineDescriptor, ShaderDescriptor};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let mut window = Window::builder()
 		.title("KingoGFX - Graphics Triangle Example (Rust)")
 		.size(1280, 720)
+		.client_api(WindowClientApi::NoApi)
 		.build()?;
 
 	window.focus();
 
-	let graphics = Graphics::create(&mut window, GraphicsApi::OpenGL)?;
-	graphics.viewport(0, 0, 1280, 720);
-	graphics.clear_color(0.2, 0.3, 0.3, 1.0);
+	let graphics = Graphics::create(&mut window, GraphicsApi::Vulkan)?;
+	let mut graphics = graphics;
+	graphics.set_viewport(0, 0, 1280, 720);
 
 	let vs_src = r#"
 		#version 330 core
@@ -29,21 +31,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		}
 	"#;
 
-	let shader = graphics.create_shader(vs_src, fs_src)
+	let shader = graphics
+		.create_shader(ShaderDescriptor {
+			vertex_source_glsl: vs_src,
+			fragment_source_glsl: fs_src,
+		})
 		.expect("Failed to create shader");
+
+	let pipeline = graphics
+		.create_pipeline(PipelineDescriptor { shader: &shader })
+		.expect("Failed to create render pipeline");
 
 	let vertices: [f32; 6] = [-0.5, -0.5, 0.5, -0.5, 0.0, 0.5];
 
-	let vertex_buffer = graphics.create_vertex_buffer(&vertices)
+	let vertex_buffer = graphics
+		.create_buffer_init(&vertices, BufferUsage::Vertex)
 		.expect("Failed to create vertex buffer");
-
-	let pipeline = graphics.create_pipeline()
-		.expect("Failed to create pipeline");
 
 	while !window.should_close() {
 		for event in window.poll_events() {
 			match event {
-				WindowEvent::Close => {}
+				WindowEvent::Close => {
+					window.set_should_close(true);
+				}
 				WindowEvent::Key(key_event) => {
 					println!(
 						"Key event -> key: {:?}, action: {:?}, mods: {:?}",
@@ -58,16 +68,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 			}
 		}
 
-		graphics.clear();
-		
-		shader.bind();
-		pipeline.bind();
-		vertex_buffer.bind();
-		graphics.draw_arrays(3);
+		if window.should_close() {
+			break;
+		}
 
-		// Her ville du normalt render'e
-		window.swap_buffers();
+		if graphics
+			.begin_frame(&mut window, ClearColor { r: 0.2, g: 0.3, b: 0.3, a: 1.0 })
+			.is_err()
+		{
+			continue;
+		}
+		graphics.set_pipeline(&pipeline)?;
+		graphics.set_vertex_buffer(0, &vertex_buffer)?;
+		graphics.draw(3, 0)?;
+		graphics.end_frame(&mut window)?;
 	}
+
+	let _ = graphics.shutdown(&mut window);
 
 	Ok(())
 }

@@ -4,22 +4,23 @@ use kingogfx::kgfx_is_key_pressed;
 use kingogfx::window::KgfxKeyCode;
 use kingogfx::window::events::{KgfxEvent, KgfxEventKind};
 use kingogfx::window::ffi::{
-    KgfxWindow, kgfx_create_window, kgfx_destroy_window, kgfx_window_focus, kgfx_window_poll_event,
-    kgfx_window_set_should_close, kgfx_window_should_close, kgfx_window_swap_buffers
+    KgfxWindow, KgfxWindowClientApi, kgfx_create_window, kgfx_destroy_window, kgfx_window_focus,
+    kgfx_window_poll_event, kgfx_window_set_should_close, kgfx_window_should_close,
 };
 use kingogfx::graphics::ffi::{
-    KgfxGraphics, KgfxShader, KgfxPipeline, KgfxVertexBuffer,
+    KgfxGraphics, KgfxPipeline, KgfxShader, KgfxVertexBuffer,
     KgfxStatus, KgfxApi,
-    kgfx_graphics_create, kgfx_graphics_destroy,
-    kgfx_graphics_viewport, kgfx_graphics_clear_color, kgfx_graphics_clear,
-    kgfx_graphics_create_shader, kgfx_shader_destroy,
-    kgfx_graphics_create_pipeline, kgfx_pipeline_destroy,
+    kgfx_graphics_create, kgfx_graphics_destroy, kgfx_graphics_shutdown,
+    kgfx_graphics_viewport,
+    kgfx_graphics_create_pipeline, kgfx_graphics_create_shader,
+    kgfx_pipeline_destroy, kgfx_shader_destroy,
     kgfx_graphics_create_vertex_buffer, kgfx_vertex_buffer_destroy,
-    kgfx_graphics_draw_arrays,
-    kgfx_graphics_bind_shader, kgfx_graphics_bind_pipeline, kgfx_graphics_bind_vertex_buffer,
+    kgfx_graphics_begin_frame, kgfx_graphics_end_frame,
+    kgfx_graphics_set_pipeline, kgfx_graphics_set_vertex_buffer,
+    kgfx_graphics_draw,
 };
 
-fn create_shader(graphics: *mut KgfxGraphics) -> *mut KgfxShader {
+fn create_pipeline(graphics: *mut KgfxGraphics) -> (*mut KgfxShader, *mut KgfxPipeline) {
     let vs_src = r#"
         #version 330 core
         layout (location = 0) in vec2 aPos;
@@ -41,15 +42,13 @@ fn create_shader(graphics: *mut KgfxGraphics) -> *mut KgfxShader {
 
     let mut shader: *mut KgfxShader = std::ptr::null_mut();
     let status = kgfx_graphics_create_shader(graphics, vs_c.as_ptr(), fs_c.as_ptr(), &mut shader);
+    if status != KgfxStatus::Ok || shader.is_null() {
+        return (std::ptr::null_mut(), std::ptr::null_mut());
+    }
 
-    if status == KgfxStatus::Ok { shader } else { std::ptr::null_mut() }
-}
-
-fn create_pipeline(graphics: *mut KgfxGraphics) -> *mut KgfxPipeline {
     let mut pipeline: *mut KgfxPipeline = std::ptr::null_mut();
-    let status = kgfx_graphics_create_pipeline(graphics, &mut pipeline);
-
-    if status == KgfxStatus::Ok { pipeline } else { std::ptr::null_mut() }
+    let status = kgfx_graphics_create_pipeline(graphics, shader, &mut pipeline);
+    if status == KgfxStatus::Ok { (shader, pipeline) } else { (shader, std::ptr::null_mut()) }
 }
 
 fn create_vertex_buffer(
@@ -69,7 +68,8 @@ fn create_vertex_buffer(
 
 fn main() {
     let title = CString::new("KingoGFX Triangle (FFI)").expect("title contains interior NUL");
-    let window: *mut KgfxWindow = kgfx_create_window(title.as_ptr(), 1280, 720);
+    let window: *mut KgfxWindow =
+        kgfx_create_window(title.as_ptr(), 1280, 720, KgfxWindowClientApi::NoApi);
     if window.is_null() {
         eprintln!("Failed to create window");
         return;
@@ -80,7 +80,7 @@ fn main() {
     let mut graphics: *mut KgfxGraphics = std::ptr::null_mut();
     let status = kgfx_graphics_create(
         window as *mut _, // Window pointer as c_void
-        KgfxApi::OpenGL,
+        KgfxApi::Vulkan,
         &mut graphics,
     );
     if status != KgfxStatus::Ok || graphics.is_null() {
@@ -90,27 +90,17 @@ fn main() {
     }
 
     kgfx_graphics_viewport(graphics, 0, 0, 1280, 720);
-    kgfx_graphics_clear_color(graphics, 0.2, 0.3, 0.3, 1.0);
-
-    let shader = create_shader(graphics);
-    if shader.is_null() {
-        kgfx_graphics_destroy(graphics);
-        kgfx_destroy_window(window);
-        return;
-    }
 
     let vertices: [f32; 6] = [-0.5, -0.5, 0.5, -0.5, 0.0, 0.5];
     let vertex_buffer = create_vertex_buffer(graphics, &vertices);
     if vertex_buffer.is_null() {
-        kgfx_shader_destroy(shader);
         kgfx_graphics_destroy(graphics);
         kgfx_destroy_window(window);
         return;
     }
 
-    let pipeline = create_pipeline(graphics);
+    let (shader, pipeline) = create_pipeline(graphics);
     if pipeline.is_null() {
-        kgfx_shader_destroy(shader);
         kgfx_vertex_buffer_destroy(vertex_buffer);
         kgfx_graphics_destroy(graphics);
         kgfx_destroy_window(window);
@@ -121,25 +111,44 @@ fn main() {
 
     while !kgfx_window_should_close(window) {
         while kgfx_window_poll_event(window, &mut event) {
-            if let KgfxEventKind::Key = event.kind {
-                if let Some(k) = event.as_key() {
-                    if kgfx_is_key_pressed(k, KgfxKeyCode::Escape) {
-                        kgfx_window_set_should_close(window, true);
+            match event.kind {
+                KgfxEventKind::Close => {
+                    kgfx_window_set_should_close(window, true);
+                }
+                KgfxEventKind::Key => {
+                    if let Some(k) = event.as_key() {
+                        if kgfx_is_key_pressed(k, KgfxKeyCode::Escape) {
+                            kgfx_window_set_should_close(window, true);
+                        }
                     }
                 }
+                _ => {}
             }
         }
 
-        kgfx_graphics_clear(graphics);
+        if kgfx_window_should_close(window) {
+            break;
+        }
 
+        if kgfx_graphics_begin_frame(graphics, window as *mut _, 0.2, 0.3, 0.3, 1.0) != KgfxStatus::Ok {
+            continue;
+        }
 
-        kgfx_graphics_bind_shader(shader);
-        kgfx_graphics_bind_pipeline(pipeline);
-        kgfx_graphics_bind_vertex_buffer(vertex_buffer);
-        kgfx_graphics_draw_arrays(graphics, 3);
-
-        kgfx_window_swap_buffers(window);
+        if kgfx_graphics_set_pipeline(graphics, pipeline) != KgfxStatus::Ok {
+            break;
+        }
+        if kgfx_graphics_set_vertex_buffer(graphics, 0, vertex_buffer) != KgfxStatus::Ok {
+            break;
+        }
+        if kgfx_graphics_draw(graphics, 3, 0) != KgfxStatus::Ok {
+            break;
+        }
+        if kgfx_graphics_end_frame(graphics, window as *mut _) != KgfxStatus::Ok {
+            break;
+        }
     }
+
+    let _ = kgfx_graphics_shutdown(graphics, window as *mut _);
 
     kgfx_vertex_buffer_destroy(vertex_buffer);
     kgfx_pipeline_destroy(pipeline);

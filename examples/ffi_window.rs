@@ -8,12 +8,13 @@ use kingogfx::window::{
         kgfx_create_window, kgfx_destroy_window, kgfx_window_poll_event, kgfx_window_set_should_close,
         kgfx_window_should_close, kgfx_window_swap_buffers,
     },
+    ffi::KgfxWindowClientApi,
     KgfxEvent, KgfxEventKind,
 };
 
 fn main() {
     let title = CString::new("KingoGFX - Window Example (FFI)").expect("title contains interior NUL");
-    let handle = kgfx_create_window(title.as_ptr(), 1280, 720);
+    let handle = kgfx_create_window(title.as_ptr(), 1280, 720, KgfxWindowClientApi::OpenGl);
 
     if handle.is_null() {
         eprintln!("kgfx_create_window failed");

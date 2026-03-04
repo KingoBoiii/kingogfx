@@ -1,33 +1,18 @@
-use crate::graphics::{pipeline::PipelineBackend};
+use std::sync::Arc;
 
-pub struct OpenGLPipeline {
-    id: u32,
+use super::OpenGLShader;
+
+pub(crate) struct OpenGLPipeline {
+    pub(super) shader: Arc<OpenGLShader>,
 }
 
 impl OpenGLPipeline {
-  pub fn new() -> Result<Self, String> {
-    let mut id: u32 = 0;
-    unsafe {
-      gl::GenVertexArrays(1, &mut id);
-      gl::BindVertexArray(id);
-
-      gl::EnableVertexAttribArray(0);
-      gl::VertexAttribPointer(0, 2, gl::FLOAT, false as u8, 2 * std::mem::size_of::<f32>() as i32, 0 as *const _);
+    pub(crate) fn destroy(&mut self) {
     }
-    Ok(OpenGLPipeline { id })
-  }
 }
 
-impl PipelineBackend for OpenGLPipeline {
-  fn bind(&self) {
-    unsafe {
-      gl::BindVertexArray(self.id);
-    }
-  }
-
-  fn unbind(&self) {
-    unsafe {
-      gl::BindVertexArray(0);
-    }
-  }
+pub(super) fn create_pipeline(shader: &Arc<OpenGLShader>) -> Result<OpenGLPipeline, String> {
+    Ok(OpenGLPipeline {
+        shader: Arc::clone(shader),
+    })
 }

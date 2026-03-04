@@ -10,3 +10,7 @@ crate-type = ["rlib","cdylib", "staticlib"]
 glfw = "0.61.0"
 glfw-sys = { version = "7.0.0", features = ["static-link"] }
 gl = "0.14.0"
+
+# Vulkan backend
+ash = "0.38.0"
+shaderc = "0.9"

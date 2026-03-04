@@ -1,90 +1,88 @@
-use crate::graphics::shader::ShaderBackend;
-use gl::types::*;
-use std::ffi::{CString};
+use gl;
 
-pub struct OpenGLShader {
-  pub program_id: u32,
+pub(crate) struct OpenGLShader {
+    program_id: u32,
 }
 
 impl OpenGLShader {
-  pub fn from_source(vertex_source: &str, fragment_source: &str) -> Result<Self, String> {
-    unsafe {
-      // Compile vertex shader
-      let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
-      let c_vertex_source = CString::new(vertex_source).unwrap();
-      gl::ShaderSource(vertex_shader, 1, &c_vertex_source.as_ptr(), std::ptr::null());
-      gl::CompileShader(vertex_shader);
+    pub(crate) fn from_source(vertex_source: &str, fragment_source: &str) -> Result<Self, String> {
+        unsafe {
+            let vs = compile_shader(gl::VERTEX_SHADER, vertex_source)?;
+            let fs = compile_shader(gl::FRAGMENT_SHADER, fragment_source)?;
 
-      // Check vertex shader compile status
-      let mut success = gl::FALSE as GLint;
-      gl::GetShaderiv(vertex_shader, gl::COMPILE_STATUS, &mut success);
-      if success != gl::TRUE as GLint {
-        let mut len = 0;
-        gl::GetShaderiv(vertex_shader, gl::INFO_LOG_LENGTH, &mut len);
-        let mut buffer = Vec::with_capacity(len as usize);
-        buffer.set_len((len as usize) - 1);
-        gl::GetShaderInfoLog(vertex_shader, len, std::ptr::null_mut(), buffer.as_mut_ptr() as *mut GLchar);
-        let error = String::from_utf8_lossy(&buffer).into_owned();
-        return Err(format!("Vertex shader compilation failed: {}", error));
-      }
+            let program = gl::CreateProgram();
+            gl::AttachShader(program, vs);
+            gl::AttachShader(program, fs);
+            gl::LinkProgram(program);
 
-      // Compile fragment shader
-      let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
-      let c_fragment_source = CString::new(fragment_source).unwrap();
-      gl::ShaderSource(fragment_shader, 1, &c_fragment_source.as_ptr(), std::ptr::null());
-      gl::CompileShader(fragment_shader);
+            gl::DeleteShader(vs);
+            gl::DeleteShader(fs);
 
-      // Check fragment shader compile status
-      let mut success = gl::FALSE as GLint;
-      gl::GetShaderiv(fragment_shader, gl::COMPILE_STATUS, &mut success);
-      if success != gl::TRUE as GLint {
-        let mut len = 0;
-        gl::GetShaderiv(fragment_shader, gl::INFO_LOG_LENGTH, &mut len);
-        let mut buffer = Vec::with_capacity(len as usize);
-        buffer.set_len((len as usize) - 1);
-        gl::GetShaderInfoLog(fragment_shader, len, std::ptr::null_mut(), buffer.as_mut_ptr() as *mut GLchar);
-        let error = String::from_utf8_lossy(&buffer).into_owned();
-        return Err(format!("Fragment shader compilation failed: {}", error));
-      }
+            let mut success = gl::FALSE as i32;
+            gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
+            if success != (gl::TRUE as i32) {
+                let mut len = 0;
+                gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len);
+                let mut buffer = vec![0u8; len.max(1) as usize];
+                gl::GetProgramInfoLog(
+                    program,
+                    len,
+                    std::ptr::null_mut(),
+                    buffer.as_mut_ptr() as *mut i8,
+                );
+                gl::DeleteProgram(program);
+                let msg = String::from_utf8_lossy(&buffer)
+                    .trim_end_matches('\0')
+                    .to_string();
+                return Err(format!("program link failed: {msg}"));
+            }
 
-      // Link shaders into a program
-      let program_id = gl::CreateProgram();
-      gl::AttachShader(program_id, vertex_shader);
-      gl::AttachShader(program_id, fragment_shader);
-      gl::LinkProgram(program_id);
-
-      // Check link status
-      let mut success = gl::FALSE as GLint;
-      gl::GetProgramiv(program_id, gl::LINK_STATUS, &mut success);
-      if success != gl::TRUE as GLint {
-        let mut len = 0;
-        gl::GetProgramiv(program_id, gl::INFO_LOG_LENGTH, &mut len);
-        let mut buffer = Vec::with_capacity(len as usize);
-        buffer.set_len((len as usize) - 1);
-        gl::GetProgramInfoLog(program_id, len, std::ptr::null_mut(), buffer.as_mut_ptr() as *mut GLchar);
-        let error = String::from_utf8_lossy(&buffer).into_owned();
-        return Err(format!("Shader program linking failed: {}", error));
-      }
-
-      // Clean up shaders (no longer needed after linking)
-      gl::DeleteShader(vertex_shader);
-      gl::DeleteShader(fragment_shader);
-
-      Ok(OpenGLShader { program_id })
+            Ok(Self { program_id: program })
+        }
     }
-  }
+
+    pub(crate) fn program_id(&self) -> u32 {
+        self.program_id
+    }
 }
 
-impl ShaderBackend for OpenGLShader {
-  fn bind(&self) {
-    unsafe {
-      gl::UseProgram(self.program_id);
+impl Drop for OpenGLShader {
+    fn drop(&mut self) {
+        if self.program_id != 0 {
+            unsafe {
+                gl::DeleteProgram(self.program_id);
+            }
+            self.program_id = 0;
+        }
     }
-  }
+}
 
-  fn unbind(&self) {
+fn compile_shader(shader_type: u32, source: &str) -> Result<u32, String> {
+    use std::ffi::CString;
+
     unsafe {
-      gl::UseProgram(0);
+        let shader = gl::CreateShader(shader_type);
+        let c_source = CString::new(source).map_err(|_| "shader source contains interior NUL".to_string())?;
+        gl::ShaderSource(shader, 1, &c_source.as_ptr(), std::ptr::null());
+        gl::CompileShader(shader);
+
+        let mut success = gl::FALSE as i32;
+        gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut success);
+        if success != (gl::TRUE as i32) {
+            let mut len = 0;
+            gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len);
+            let mut buffer = vec![0u8; len.max(1) as usize];
+            gl::GetShaderInfoLog(
+                shader,
+                len,
+                std::ptr::null_mut(),
+                buffer.as_mut_ptr() as *mut i8,
+            );
+            gl::DeleteShader(shader);
+            let msg = String::from_utf8_lossy(&buffer).trim_end_matches('\0').to_string();
+            return Err(format!("shader compile failed: {msg}"));
+        }
+
+        Ok(shader)
     }
-  }
 }

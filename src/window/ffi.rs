@@ -4,6 +4,7 @@ use std::panic::catch_unwind;
 use std::ptr;
 
 use super::events::KgfxEvent;
+use super::builder::WindowClientApi;
 use super::Window;
 
 fn parse_title(title: *const c_char) -> String {
@@ -22,6 +23,13 @@ pub struct KgfxWindow {
     _private: [u8; 0],
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum KgfxWindowClientApi {
+    OpenGl,
+    NoApi,
+}
+
 fn as_window_mut<'a>(handle: *mut KgfxWindow) -> Option<&'a mut Window> {
     if handle.is_null() {
         None
@@ -35,10 +43,20 @@ pub extern "C" fn kgfx_create_window(
     title: *const c_char,
     width: u32,
     height: u32,
+    client_api: KgfxWindowClientApi,
 ) -> *mut KgfxWindow {
     let result = catch_unwind(|| {
         let title = parse_title(title);
-        Window::new(width, height, title)
+        let client_api = match client_api {
+            KgfxWindowClientApi::OpenGl => WindowClientApi::OpenGl,
+            KgfxWindowClientApi::NoApi => WindowClientApi::NoApi,
+        };
+
+        Window::builder()
+            .title(title)
+            .size(width, height)
+            .client_api(client_api)
+            .build()
             .ok()
             .map(|w| Box::into_raw(Box::new(w)).cast::<KgfxWindow>())
     });
