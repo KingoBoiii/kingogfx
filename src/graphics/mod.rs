@@ -4,6 +4,7 @@ pub mod ffi;
 pub(crate) mod backends;
 
 mod device;
+pub(crate) mod shader_compiler;
 
 pub use device::{
     Buffer,
@@ -15,4 +16,6 @@ pub use device::{
     PipelineDescriptor,
     Shader,
     ShaderDescriptor,
+    ShaderLanguage,
+    ShaderSource,
 };

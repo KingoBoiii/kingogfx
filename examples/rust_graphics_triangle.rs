@@ -1,6 +1,6 @@
 use kingogfx::window::builder::WindowClientApi;
 use kingogfx::window::{Input, KeyCode, Window, WindowEvent};
-use kingogfx::graphics::{BufferUsage, ClearColor, Graphics, GraphicsApi, PipelineDescriptor, ShaderDescriptor};
+use kingogfx::graphics::{BufferUsage, ClearColor, Graphics, GraphicsApi, PipelineDescriptor, ShaderDescriptor, ShaderSource};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let mut window = Window::builder()
@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	window.focus();
 
-	let graphics = Graphics::create(&mut window, GraphicsApi::Vulkan)?;
+	let graphics = Graphics::create(&mut window, GraphicsApi::DirectX12)?;
 	let mut graphics = graphics;
 	graphics.set_viewport(0, 0, 1280, 720);
 
@@ -33,10 +33,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	let shader = graphics
 		.create_shader(ShaderDescriptor {
-			vertex_source_glsl: vs_src,
-			fragment_source_glsl: fs_src,
-			vertex_source_hlsl: None,
-			fragment_source_hlsl: None,
+			vertex: ShaderSource::glsl(vs_src),
+			fragment: ShaderSource::glsl(fs_src),
 		})
 		.expect("Failed to create shader");
 

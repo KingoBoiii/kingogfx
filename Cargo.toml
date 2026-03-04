@@ -28,3 +28,4 @@ windows = { version = "0.59.0", features = [
 # Vulkan backend
 ash = "0.38.0"
 shaderc = "0.9"
+naga = { version = "0.20", features = ["spv-in", "hlsl-out"] }

@@ -185,11 +185,7 @@ impl VulkanGraphics {
     }
 
     pub(crate) fn create_shader(&mut self, desc: ShaderDescriptor<'_>) -> Result<Arc<VulkanShader>, String> {
-        let shader = VulkanShader::from_glsl_sources(
-            &self.device,
-            desc.vertex_source_glsl,
-            desc.fragment_source_glsl,
-        )?;
+        let shader = VulkanShader::from_sources(&self.device, desc.vertex, desc.fragment)?;
         Ok(Arc::new(shader))
     }
 

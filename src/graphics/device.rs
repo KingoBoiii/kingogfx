@@ -38,14 +38,37 @@ pub struct PipelineDescriptor<'a> {
     pub shader: &'a Shader,
 }
 
-pub struct ShaderDescriptor<'a> {
-    pub vertex_source_glsl: &'a str,
-    pub fragment_source_glsl: &'a str,
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ShaderLanguage {
+    Glsl,
+    Hlsl,
+}
 
-    /// Optional HLSL sources used by DirectX backends.
-    /// If a DirectX backend is selected and these are `None`, shader creation will fail.
-    pub vertex_source_hlsl: Option<&'a str>,
-    pub fragment_source_hlsl: Option<&'a str>,
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct ShaderSource<'a> {
+    pub language: ShaderLanguage,
+    pub source: &'a str,
+}
+
+impl<'a> ShaderSource<'a> {
+    pub fn glsl(source: &'a str) -> Self {
+        Self {
+            language: ShaderLanguage::Glsl,
+            source,
+        }
+    }
+
+    pub fn hlsl(source: &'a str) -> Self {
+        Self {
+            language: ShaderLanguage::Hlsl,
+            source,
+        }
+    }
+}
+
+pub struct ShaderDescriptor<'a> {
+    pub vertex: ShaderSource<'a>,
+    pub fragment: ShaderSource<'a>,
 }
 
 pub struct Buffer {

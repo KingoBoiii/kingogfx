@@ -11,6 +11,7 @@ use super::{
     PipelineDescriptor,
     Shader,
     ShaderDescriptor,
+    ShaderSource,
 };
 use crate::window::Window;
 
@@ -162,10 +163,8 @@ pub extern "C" fn kgfx_graphics_create_shader(
     let fragment_source = unsafe { CStr::from_ptr(fragment_source) }.to_str().unwrap_or("");
 
     match gfx.create_shader(ShaderDescriptor {
-        vertex_source_glsl: vertex_source,
-        fragment_source_glsl: fragment_source,
-        vertex_source_hlsl: None,
-        fragment_source_hlsl: None,
+        vertex: ShaderSource::glsl(vertex_source),
+        fragment: ShaderSource::glsl(fragment_source),
     }) {
         Ok(shader) => {
             unsafe { *out_shader = Box::into_raw(Box::new(shader)).cast(); }

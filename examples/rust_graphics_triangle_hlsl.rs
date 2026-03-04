@@ -1,17 +1,17 @@
 use kingogfx::window::builder::WindowClientApi;
 use kingogfx::window::{Input, KeyCode, Window, WindowEvent};
-use kingogfx::graphics::{BufferUsage, ClearColor, Graphics, GraphicsApi, PipelineDescriptor, ShaderDescriptor};
+use kingogfx::graphics::{BufferUsage, ClearColor, Graphics, GraphicsApi, PipelineDescriptor, ShaderDescriptor, ShaderSource};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut window = Window::builder()
-        .title("KingoGFX - Graphics Triangle Example (DirectX11)")
+        .title("KingoGFX - Graphics Triangle Example (DirectX12)")
         .size(1280, 720)
         .client_api(WindowClientApi::NoApi)
         .build()?;
 
     window.focus();
 
-    let mut graphics = Graphics::create(&mut window, GraphicsApi::DirectX11)?;
+    let mut graphics = Graphics::create(&mut window, GraphicsApi::DirectX12)?;
     graphics.set_viewport(0, 0, 1280, 720);
 
     let vs_hlsl = r#"
@@ -37,10 +37,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     "#;
 
     let shader = graphics.create_shader(ShaderDescriptor {
-        vertex_source_glsl: "",
-        fragment_source_glsl: "",
-        vertex_source_hlsl: Some(vs_hlsl),
-        fragment_source_hlsl: Some(ps_hlsl),
+        vertex: ShaderSource::hlsl(vs_hlsl),
+        fragment: ShaderSource::hlsl(ps_hlsl),
     })?;
 
     let pipeline = graphics.create_pipeline(PipelineDescriptor { shader: &shader })?;

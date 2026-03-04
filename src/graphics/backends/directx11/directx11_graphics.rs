@@ -4,7 +4,7 @@ use std::sync::Arc;
 use glfw_sys::GLFWwindow;
 
 use windows::Win32::Foundation::*;
-use windows::core::PCSTR;
+use windows::core::{Interface, PCSTR};
 use windows::Win32::Graphics::Direct3D::*;
 use windows::Win32::Graphics::Direct3D11::*;
 use windows::Win32::Graphics::Direct3D::Fxc::*;
@@ -12,6 +12,7 @@ use windows::Win32::Graphics::Dxgi::*;
 use windows::Win32::Graphics::Dxgi::Common::*;
 
 use crate::graphics::device::{BufferUsage, ClearColor, ShaderDescriptor};
+use crate::graphics::shader_compiler::{compile_to_spirv, spirv_to_hlsl, ShaderStage};
 use crate::window::Window;
 
 use super::directx11_swapchain::DirectX11Swapchain;
@@ -146,15 +147,14 @@ impl DirectX11Graphics {
     }
 
     pub(crate) fn create_shader(&mut self, desc: ShaderDescriptor<'_>) -> Result<Arc<DirectX11Shader>, String> {
-        let vs_src = desc
-            .vertex_source_hlsl
-            .ok_or_else(|| "DirectX11 shader creation requires vertex_source_hlsl".to_string())?;
-        let ps_src = desc
-            .fragment_source_hlsl
-            .ok_or_else(|| "DirectX11 shader creation requires fragment_source_hlsl".to_string())?;
+        let vert_spv = compile_to_spirv(desc.vertex, ShaderStage::Vertex, "shader.vert", shaderc::TargetEnv::Vulkan)?;
+        let frag_spv = compile_to_spirv(desc.fragment, ShaderStage::Fragment, "shader.frag", shaderc::TargetEnv::Vulkan)?;
 
-        let vs = compile_hlsl(vs_src, "main", "vs_5_0")?;
-        let ps = compile_hlsl(ps_src, "main", "ps_5_0")?;
+        let vs_hlsl = spirv_to_hlsl(&vert_spv)?;
+        let ps_hlsl = spirv_to_hlsl(&frag_spv)?;
+
+        let vs = compile_hlsl(&vs_hlsl, "main", "vs_5_0")?;
+        let ps = compile_hlsl(&ps_hlsl, "main", "ps_5_0")?;
         Ok(Arc::new(DirectX11Shader { vs, ps }))
     }
 
@@ -175,26 +175,7 @@ impl DirectX11Graphics {
                 .map_err(|e| format!("CreatePixelShader failed: {e:?}"))?;
             let ps = ps.ok_or_else(|| "CreatePixelShader returned null shader".to_string())?;
 
-            static SEMANTIC_POSITION: &[u8] = b"POSITION\0";
-            let element = D3D11_INPUT_ELEMENT_DESC {
-                SemanticName: PCSTR(SEMANTIC_POSITION.as_ptr()),
-                SemanticIndex: 0,
-                Format: DXGI_FORMAT_R32G32_FLOAT,
-                InputSlot: 0,
-                AlignedByteOffset: 0,
-                InputSlotClass: D3D11_INPUT_PER_VERTEX_DATA,
-                InstanceDataStepRate: 0,
-            };
-
-            let mut layout: Option<ID3D11InputLayout> = None;
-            self.device
-                .CreateInputLayout(
-                    &[element],
-                    vs_bytes,
-                    Some(&mut layout as *mut _),
-                )
-                .map_err(|e| format!("CreateInputLayout failed: {e:?}"))?;
-            let layout = layout.ok_or_else(|| "CreateInputLayout returned null layout".to_string())?;
+            let layout = create_input_layout_from_vs(&self.device, vs_bytes)?;
 
             let rast_desc = D3D11_RASTERIZER_DESC {
                 FillMode: D3D11_FILL_SOLID,
@@ -403,6 +384,104 @@ fn compile_hlsl(source: &str, entry: &str, target: &str) -> Result<ID3DBlob, Str
         }
 
         code.ok_or_else(|| "D3DCompile succeeded but returned no blob".to_string())
+    }
+}
+
+fn create_input_layout_from_vs(device: &ID3D11Device, vs_bytes: &[u8]) -> Result<ID3D11InputLayout, String> {
+    unsafe {
+        let mut reflector_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
+        D3DReflect(
+            vs_bytes.as_ptr().cast(),
+            vs_bytes.len(),
+            &ID3D11ShaderReflection::IID,
+            &mut reflector_ptr,
+        )
+        .map_err(|e| format!("D3DReflect failed: {e:?}"))?;
+
+        let reflector = ID3D11ShaderReflection::from_raw(reflector_ptr.cast());
+
+        let mut shader_desc = D3D11_SHADER_DESC::default();
+        reflector
+            .GetDesc(&mut shader_desc)
+            .map_err(|e| format!("ID3D11ShaderReflection::GetDesc failed: {e:?}"))?;
+
+        let mut elements: Vec<D3D11_INPUT_ELEMENT_DESC> = Vec::with_capacity(shader_desc.InputParameters as usize);
+        let mut offset: u32 = 0;
+
+        for i in 0..shader_desc.InputParameters {
+            let mut param_desc = D3D11_SIGNATURE_PARAMETER_DESC::default();
+            reflector
+                .GetInputParameterDesc(i, &mut param_desc)
+                .map_err(|e| format!("GetInputParameterDesc({i}) failed: {e:?}"))?;
+
+            // Skip system-value inputs (e.g. SV_VertexID) that are not sourced from the vertex buffer.
+            if param_desc.SystemValueType != D3D_NAME_UNDEFINED {
+                continue;
+            }
+
+            let format = signature_param_to_dxgi_format(&param_desc)?;
+            elements.push(D3D11_INPUT_ELEMENT_DESC {
+                SemanticName: param_desc.SemanticName,
+                SemanticIndex: param_desc.SemanticIndex,
+                Format: format,
+                InputSlot: 0,
+                AlignedByteOffset: offset,
+                InputSlotClass: D3D11_INPUT_PER_VERTEX_DATA,
+                InstanceDataStepRate: 0,
+            });
+            offset = offset
+                .checked_add(dxgi_format_size_bytes(format))
+                .ok_or_else(|| "input layout offset overflow".to_string())?;
+        }
+
+        if elements.is_empty() {
+            return Err("vertex shader has no user input parameters".to_string());
+        }
+
+        let mut layout: Option<ID3D11InputLayout> = None;
+        device
+            .CreateInputLayout(&elements, vs_bytes, Some(&mut layout as *mut _))
+            .map_err(|e| format!("CreateInputLayout failed: {e:?}"))?;
+        layout.ok_or_else(|| "CreateInputLayout returned null layout".to_string())
+    }
+}
+
+fn signature_param_to_dxgi_format(desc: &D3D11_SIGNATURE_PARAMETER_DESC) -> Result<DXGI_FORMAT, String> {
+    let component_count = (desc.Mask as u32).count_ones();
+    let component_type = desc.ComponentType;
+
+    match (component_type, component_count) {
+        (D3D_REGISTER_COMPONENT_FLOAT32, 1) => Ok(DXGI_FORMAT_R32_FLOAT),
+        (D3D_REGISTER_COMPONENT_FLOAT32, 2) => Ok(DXGI_FORMAT_R32G32_FLOAT),
+        (D3D_REGISTER_COMPONENT_FLOAT32, 3) => Ok(DXGI_FORMAT_R32G32B32_FLOAT),
+        (D3D_REGISTER_COMPONENT_FLOAT32, 4) => Ok(DXGI_FORMAT_R32G32B32A32_FLOAT),
+
+        (D3D_REGISTER_COMPONENT_SINT32, 1) => Ok(DXGI_FORMAT_R32_SINT),
+        (D3D_REGISTER_COMPONENT_SINT32, 2) => Ok(DXGI_FORMAT_R32G32_SINT),
+        (D3D_REGISTER_COMPONENT_SINT32, 3) => Ok(DXGI_FORMAT_R32G32B32_SINT),
+        (D3D_REGISTER_COMPONENT_SINT32, 4) => Ok(DXGI_FORMAT_R32G32B32A32_SINT),
+
+        (D3D_REGISTER_COMPONENT_UINT32, 1) => Ok(DXGI_FORMAT_R32_UINT),
+        (D3D_REGISTER_COMPONENT_UINT32, 2) => Ok(DXGI_FORMAT_R32G32_UINT),
+        (D3D_REGISTER_COMPONENT_UINT32, 3) => Ok(DXGI_FORMAT_R32G32B32_UINT),
+        (D3D_REGISTER_COMPONENT_UINT32, 4) => Ok(DXGI_FORMAT_R32G32B32A32_UINT),
+
+        _ => Err(format!(
+            "unsupported vertex input component type/count: type={component_type:?} mask={:#x}",
+            desc.Mask
+        )),
+    }
+}
+
+fn dxgi_format_size_bytes(format: DXGI_FORMAT) -> u32 {
+    match format {
+        DXGI_FORMAT_R32_FLOAT | DXGI_FORMAT_R32_SINT | DXGI_FORMAT_R32_UINT => 4,
+        DXGI_FORMAT_R32G32_FLOAT | DXGI_FORMAT_R32G32_SINT | DXGI_FORMAT_R32G32_UINT => 8,
+        DXGI_FORMAT_R32G32B32_FLOAT | DXGI_FORMAT_R32G32B32_SINT | DXGI_FORMAT_R32G32B32_UINT => 12,
+        DXGI_FORMAT_R32G32B32A32_FLOAT
+        | DXGI_FORMAT_R32G32B32A32_SINT
+        | DXGI_FORMAT_R32G32B32A32_UINT => 16,
+        _ => 0,
     }
 }
 

@@ -2,7 +2,10 @@ use std::ffi::CString;
 
 use ash::vk;
 
-use shaderc::{CompileOptions, Compiler, ShaderKind, TargetEnv};
+use shaderc::TargetEnv;
+
+use crate::graphics::device::ShaderSource;
+use crate::graphics::shader_compiler::{compile_to_spirv, ShaderStage};
 
 pub(crate) struct VulkanShader {
     device: ash::Device,
@@ -11,13 +14,13 @@ pub(crate) struct VulkanShader {
 }
 
 impl VulkanShader {
-    pub(super) fn from_glsl_sources(
+    pub(super) fn from_sources(
         device: &ash::Device,
-        vertex_source_glsl: &str,
-        fragment_source_glsl: &str,
+        vertex: ShaderSource<'_>,
+        fragment: ShaderSource<'_>,
     ) -> Result<Self, String> {
-        let vert_spv = compile_glsl_to_spirv(vertex_source_glsl, ShaderKind::Vertex, "shader.vert")?;
-        let frag_spv = compile_glsl_to_spirv(fragment_source_glsl, ShaderKind::Fragment, "shader.frag")?;
+        let vert_spv = compile_to_spirv(vertex, ShaderStage::Vertex, "shader.vert", TargetEnv::Vulkan)?;
+        let frag_spv = compile_to_spirv(fragment, ShaderStage::Fragment, "shader.frag", TargetEnv::Vulkan)?;
 
         let vert = create_shader_module(device, &vert_spv)?;
         let frag = match create_shader_module(device, &frag_spv) {
@@ -67,22 +70,6 @@ impl Drop for VulkanShader {
             }
         }
     }
-}
-
-pub(super) fn compile_glsl_to_spirv(source: &str, kind: ShaderKind, file_name: &str) -> Result<Vec<u32>, String> {
-    let compiler = Compiler::new().map_err(|e| format!("shaderc: failed to create compiler: {e:?}"))?;
-
-    let mut options = CompileOptions::new().map_err(|e| format!("shaderc: failed to create compile options: {e:?}"))?;
-    // Make GLSL sources more permissive for Vulkan SPIR-V.
-    // In particular, Vulkan requires explicit locations for user IO.
-    options.set_auto_map_locations(true);
-    options.set_target_env(TargetEnv::Vulkan, 0);
-
-    let artifact = compiler
-        .compile_into_spirv(source, kind, file_name, "main", Some(&options))
-        .map_err(|e| format!("shaderc compile failed: {e}"))?;
-
-    Ok(artifact.as_binary().to_vec())
 }
 
 pub(super) fn create_shader_module(device: &ash::Device, spv: &[u32]) -> Result<vk::ShaderModule, String> {
